@@ -10,7 +10,7 @@ from app.services.llm_service import get_llm
 from app.utils.tracer import build_trace_entry
 
 # prompt
-GENRATION_PROMPT = ChatPromptTemplate.from_messages(
+GENERATION_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
@@ -41,9 +41,9 @@ def generate_answer(state: GraphState) -> dict:
 
         context = format_docs(retrieved_docs)
         llm = get_llm()
-        
+
         # LCEL
-        chain = GENRATION_PROMPT | llm
+        chain = GENERATION_PROMPT | llm
 
         response = chain.invoke({"context": context, "question": rewritten_query})
 
