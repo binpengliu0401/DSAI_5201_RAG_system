@@ -6,12 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.src.api.routes import router as rest_router
 from backend.src.api.websocket import router as websocket_router
 from backend.src.config import settings
+from config.logging import configure_logging, get_logger
 
 
+configure_logging(settings.runtime.log_level)
+logger = get_logger(__name__)
 app = FastAPI(title="RAG Backend", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(settings.allowed_origins) or ["*"],
+    allow_origins=list(settings.backend.allowed_origins) or ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -19,3 +22,11 @@ app.add_middleware(
 app.include_router(rest_router)
 app.include_router(websocket_router)
 
+logger.info(
+    "Backend configured env=%s host=%s port=%s engine=%s ws=%s",
+    settings.runtime.app_env,
+    settings.backend.host,
+    settings.backend.port,
+    settings.rag.engine_mode,
+    settings.backend.ws_url,
+)

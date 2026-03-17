@@ -9,7 +9,8 @@ Run `npm install`.
 
 Run `npm run dev`.
 
-If `VITE_RAG_WS_URL` is not set, the app uses a local demo transport so the UI still renders and streams content for design review.
+The frontend now reads shared service settings from the project root `.env` through Vite.
+Set `FRONTEND_RAG_TRANSPORT=demo` if you want to force the local demo transport without a backend connection.
 
 ## Runtime Architecture
 
@@ -21,11 +22,20 @@ If `VITE_RAG_WS_URL` is not set, the app uses a local demo transport so the UI s
 
 ## Environment
 
-Copy `.env.example` and set:
+Copy the root `.env.example` to `.env` and set the shared service values there.
+
+Relevant variables:
 
 ```bash
-VITE_RAG_WS_URL=ws://localhost:8000/ws
+FRONTEND_HOST=127.0.0.1
+FRONTEND_PORT=5173
+BACKEND_HOST=0.0.0.0
+BACKEND_PORT=8000
+BACKEND_WS_PATH=/ws/rag
+FRONTEND_RAG_TRANSPORT=websocket
 ```
+
+Optional frontend-only overrides can still be placed in `web/.env`.
 
 ## WebSocket Contract
 

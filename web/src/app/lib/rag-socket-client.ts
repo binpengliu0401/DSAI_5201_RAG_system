@@ -1,4 +1,5 @@
 import type { RAGServerEvent, RAGTransport, TransportCallbacks } from '../types/rag';
+import { log } from './logger';
 
 interface CreateWebSocketTransportOptions {
   url: string;
@@ -49,20 +50,24 @@ export function createWebSocketTransport({
       try {
         socket = new WebSocket(url);
       } catch (error) {
+        log('error', 'Failed to create WebSocket connection', { url });
         sendConnectionStatus('error');
         callbacks.onTransportError(error instanceof Error ? error.message : 'Failed to create WebSocket connection.');
         return;
       }
 
       socket.onopen = () => {
+        log('info', 'WebSocket connected', { url });
         sendConnectionStatus('connected');
       };
 
       socket.onclose = () => {
+        log('warn', 'WebSocket disconnected', { url });
         sendConnectionStatus('disconnected');
       };
 
       socket.onerror = () => {
+        log('error', 'WebSocket connection error', { url });
         sendConnectionStatus('error');
         callbacks?.onTransportError('WebSocket connection error.');
       };
@@ -87,6 +92,7 @@ export function createWebSocketTransport({
     },
     submitQuery(query) {
       if (!socket || socket.readyState !== WebSocket.OPEN) {
+        log('warn', 'Attempted to submit a query before WebSocket connection was open');
         callbacks?.onTransportError('WebSocket is not connected.');
         return;
       }
@@ -95,6 +101,7 @@ export function createWebSocketTransport({
         type: 'submit_query',
         query,
       };
+      log('info', 'Submitting websocket query', { query });
       socket.send(JSON.stringify(payload));
     },
   };

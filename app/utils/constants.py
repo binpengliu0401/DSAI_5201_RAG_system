@@ -1,18 +1,15 @@
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
+from config.settings import settings
 
 
 # LLM
-LLM_API_KEY = os.getenv("OPENAI_API_KEY")
-LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gpt-4o-mini")
-LLM_TEMPERATURE = 0.0
+LLM_API_KEY = settings.llm.api_key
+LLM_MODEL_NAME = settings.llm.model_name
+LLM_TEMPERATURE = settings.llm.temperature
 
 # Router
-HALLUCINATION_THRESHOLD = 0.7
-MAX_RETRIES = 2
+HALLUCINATION_THRESHOLD = settings.rag.hallucination_threshold
+MAX_RETRIES = settings.rag.max_retries
 
 # Retrieval
-FAISS_INDEX_PATH = os.getenv("FAISS_INDEX_PATH", "./data/faiss_index")
-TOP_K_DOCS = 5
+FAISS_INDEX_PATH = settings.rag.faiss_index_path
+TOP_K_DOCS = settings.rag.top_k_docs

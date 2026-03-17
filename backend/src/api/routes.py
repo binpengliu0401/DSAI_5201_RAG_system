@@ -10,12 +10,15 @@ router = APIRouter()
 
 @router.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "engineMode": settings.engine_mode}
+    return {"status": "ok", "engineMode": settings.rag.engine_mode}
 
 
 @router.get("/config")
 async def config() -> dict:
     return {
-        "engineMode": settings.engine_mode,
-        "websocketPath": "/ws/rag",
+        "engineMode": settings.rag.engine_mode,
+        "frontendPublicUrl": settings.frontend.public_url,
+        "backendPublicUrl": settings.backend.public_url,
+        "websocketPath": settings.backend.ws_path,
+        "websocketUrl": settings.backend.ws_url,
     }
