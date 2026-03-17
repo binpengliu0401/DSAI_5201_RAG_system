@@ -11,6 +11,7 @@ faiss-cpu>=1.8.0
 # API Server
 fastapi>=0.115.0
 uvicorn>=0.30.0
+websockets>=16.0
 
 # Env management
 python-dotenv>=1.0.0
