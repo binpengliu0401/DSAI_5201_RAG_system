@@ -1,6 +1,6 @@
-# RAG Academic Paper Q&A System
+# MathMind-RAG
 
-A LangGraph-based Agentic RAG system for academic paper question answering,
+A LangGraph-based Agentic RAG system for AI and Math academic paper question answering,
 featuring a hallucination-detection feedback loop with automatic query retry.
 
 ```
@@ -31,28 +31,63 @@ User Query
 ```
 app/
 ├── graph/
-│   ├── state.py        # GraphState schema
-│   ├── builder.py      # LangGraph assembly
-│   └── router.py       # Conditional Router — Node 5
+│   ├── state.py              # GraphState schema
+│   ├── builder.py            # LangGraph assembly
+│   └── router.py             # Conditional Router — Node 5
 ├── nodes/
-│   ├── generation.py   # Node 3
-│   ├── rewriting.py    # Node 1
-│   ├── retrieval.py    # Node 2
-│   └── grading.py      # Node 4
+│   ├── rewriting.py          # Node 1 — Query Rewriting (Chen)
+│   ├── retrieval.py          # Node 2 — FAISS Retrieval (Li)
+│   ├── generation.py         # Node 3 — LLM Generation (Liu)
+│   └── grading.py            # Node 4 — Hallucination Grading (Hu)
+├── dataset_processing/       # Data pipeline (Li)
+│   ├── dataset_loader.py
+│   ├── embedder.py
+│   └── vector_store.py
 ├── services/
-│   ├── llm_service.py
-│   └── formatter.py
+│   ├── llm_service.py        # Qwen via DashScope (LangChain-compatible)
+│   └── retriever.py          # RAGRetriever — FAISS index management
 ├── utils/
 │   ├── tracer.py
 │   └── constants.py
 ├── api/
-│   └── server.py       # FastAPI server
-└── main.py             # CLI entry point
+└── main.py                   # CLI entry point
+
+backend/                      # FastAPI + WebSocket server (Hu)
+├── src/
+│   ├── api/
+│   ├── engines/              # core / fake engine modes
+│   ├── schemas/
+│   └── main.py
+└── run.py                    # Backend entry point
+
+web/                          # React frontend (Hu)
+├── src/
+└── package.json
+
+config/                       # Centralized configuration
+├── logging.py
+└── settings.py
+
+scripts/
+└── build_index.py            # One-time FAISS index builder
+
+data/
+├── train-00000-of-00001.parquet   # AI/Math paper dataset (not in git)
+└── index/                         # FAISS index files (not in git)
 
 tests/
-├── test_rewriting.py
-├── test_retrieval.py
-└── test_grading.py
+├── unit/
+│   ├── test_rewriting.py
+│   ├── test_retrieval.py
+│   ├── test_grading.py
+│   ├── test_workflow.py
+│   ├── test_llm_service.py
+│   ├── test_llm_service_live.py
+│   └── test_backend_service.py
+└── eval/
+    ├── eval_behavior.py
+    ├── eval_rewrite.py
+    └── eval_rewriting_assert.py
 ```
 
 ---
@@ -61,12 +96,12 @@ tests/
 
 ```bash
 git clone <repo-url>
-cd RAG_Q&A_SYSTEM
+cd MathMind-RAG
 
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-pip install -r requirement.txt
+pip install -r requirements.txt
 
 cp .env.example .env
 # Fill in your own API keys in .env
@@ -74,16 +109,60 @@ cp .env.example .env
 
 ---
 
+## Data & Index Setup (First Time Only)
+
+Download the dataset from HuggingFace and place it in `data/`:
+
+```
+data/train-00000-of-00001.parquet
+```
+
+Then build the FAISS index:
+
+```bash
+python -m scripts.build_index
+```
+
+This generates `data/index/faiss_flat.index` and `data/index/documents.pkl`.
+
+---
+
 ## Environment Variables
 
 See `.env.example`. Each person fills in their own `.env` — never commit this file.
+
+| Variable | Description |
+|----------|-------------|
+| `LLM_API_KEY` | DashScope API key for Qwen |
+| `RAG_ENGINE_MODE` | `fake` for frontend demo, `core` for full pipeline |
+| `FAISS_INDEX_PATH` | Path to FAISS index directory |
+
+---
+
+## Running the System
+
+**Backend:**
+
+```bash
+python -m backend.run
+```
+
+**Frontend** (separate terminal):
+
+```bash
+cd web
+npm install   # first time only
+npm run dev
+```
+
+Frontend available at `http://localhost:5173`.
 
 ---
 
 ## GraphState Contract
 
 All nodes share a single `GraphState`. Do not add or rename fields without
-discussing with the system architect first.
+discussing with the system architect (Liu) first.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -104,6 +183,7 @@ discussing with the system architect first.
 - `retrieved_docs` must be `List[Document]` from `langchain_core.documents`
 - On error, write to `error_message` and return gracefully — do not raise exceptions
 - Use `build_trace_entry()` from `app/utils/tracer.py` for trace entries
+- LLM: Qwen (`qwen-plus`) via DashScope, LangChain-compatible interface
 - Score threshold: `>= 0.7` acceptable, `< 0.7` triggers retry
 
 ---
@@ -111,5 +191,18 @@ discussing with the system architect first.
 ## Unit Tests
 
 ```bash
-python -m pytest tests/ -v
+# Run all unit tests
+python -m pytest tests/unit/ -v
+
+# Run evaluation scripts (requires LLM API)
+python -m tests.eval.eval_behavior
+python -m tests.eval.eval_rewrite
 ```
+
+---
+
+## Dataset
+
+**ai_math_paper_list** — 1220 AI and Math academic papers from HuggingFace.  
+Source: <https://huggingface.co/datasets/fzyzcjy/ai_math_paper_list>  
+Each paper's abstract is used as a retrieval unit. Title is stored as metadata.
