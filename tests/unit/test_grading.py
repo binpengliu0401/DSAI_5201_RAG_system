@@ -9,12 +9,12 @@ from langchain_core.documents import Document
 from app.nodes.grading import grade_hallucination
 
 
-def make_state(answer: str, retrieved_docs: list) -> dict:
+def make_state(answer: str, retrieved_docs: list) -> dict: # type: ignore
     """Build a minimal state dict for testing."""
     pass
 
 
-def make_document(content: str) -> Document:
+def make_document(content: str) -> Document: # type: ignore
     """Helper to create a test Document."""
     pass
 

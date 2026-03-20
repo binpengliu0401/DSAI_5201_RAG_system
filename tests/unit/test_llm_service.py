@@ -39,11 +39,11 @@ def expected_messages(user_prompt, system_prompt):
 @patch("app.services.llm_service.LLM_API_KEY", "test-key")
 @patch("app.services.llm_service.OpenAI")
 def test_constructor_initializes_openai_client(mock_openai):
-    service = llm_service.LLMService()
+    service = llm_service.LLMService()  # type: ignore
 
     mock_openai.assert_called_once_with(
         api_key="test-key",
-        base_url=llm_service.SILICONFLOW_BASE_URL,
+        base_url=llm_service.SILICONFLOW_BASE_URL,  # type: ignore
     )
     assert service.client is mock_openai.return_value
 
@@ -56,16 +56,16 @@ def test_chat_text_returns_assistant_text(mock_openai):
         "RAG improves grounding."
     )
 
-    service = llm_service.LLMService()
+    service = llm_service.LLMService()  # type: ignore
     result = service.chat_text("What is RAG?")
 
     assert result == "RAG improves grounding."
     mock_client.chat.completions.create.assert_called_once_with(
-        model=llm_service.LLM_MODEL_NAME,
+        model=llm_service.LLM_MODEL_NAME,  # type: ignore
         temperature=llm_service.LLM_TEMPERATURE,
         messages=expected_messages(
             "What is RAG?",
-            llm_service.DEFAULT_SYSTEM_PROMPT,
+            llm_service.DEFAULT_SYSTEM_PROMPT,  # type: ignore
         ),
     )
 
@@ -78,7 +78,7 @@ def test_chat_json_returns_parsed_dict(mock_openai):
         '{"label":"RAG","summary":"Grounds answers with retrieval."}'
     )
 
-    service = llm_service.LLMService()
+    service = llm_service.LLMService()  # type: ignore
     result = service.chat_json(
         "Return JSON describing RAG.",
         "You must return valid JSON.",
@@ -89,7 +89,7 @@ def test_chat_json_returns_parsed_dict(mock_openai):
         "summary": "Grounds answers with retrieval.",
     }
     mock_client.chat.completions.create.assert_called_once_with(
-        model=llm_service.LLM_MODEL_NAME,
+        model=llm_service.LLM_MODEL_NAME,  # type: ignore
         temperature=llm_service.LLM_TEMPERATURE,
         messages=expected_messages(
             "Return JSON describing RAG.",
@@ -105,7 +105,7 @@ def test_chat_json_raises_for_invalid_json(mock_openai):
     mock_client = mock_openai.return_value
     mock_client.chat.completions.create.return_value = make_response("not json")
 
-    service = llm_service.LLMService()
+    service = llm_service.LLMService()  # type: ignore
 
     with pytest.raises(ValueError, match="LLM returned invalid JSON"):
         service.chat_json(
@@ -125,16 +125,16 @@ def test_stream_chat_yields_only_non_empty_tokens(mock_openai):
         make_stream_chunk("grounding."),
     ]
 
-    service = llm_service.LLMService()
+    service = llm_service.LLMService()  # type: ignore
     tokens = list(service.stream_chat("Explain RAG briefly"))
 
     assert tokens == ["RAG ", "improves ", "grounding."]
     mock_client.chat.completions.create.assert_called_once_with(
-        model=llm_service.LLM_MODEL_NAME,
+        model=llm_service.LLM_MODEL_NAME,  # type: ignore
         temperature=llm_service.LLM_TEMPERATURE,
         messages=expected_messages(
             "Explain RAG briefly",
-            llm_service.DEFAULT_SYSTEM_PROMPT,
+            llm_service.DEFAULT_SYSTEM_PROMPT,  # type: ignore
         ),
         stream=True,
     )
@@ -143,4 +143,4 @@ def test_stream_chat_yields_only_non_empty_tokens(mock_openai):
 @patch("app.services.llm_service.LLM_API_KEY", None)
 def test_constructor_requires_api_key():
     with pytest.raises(ValueError, match="LLM_API_KEY is not configured"):
-        llm_service.LLMService()
+        llm_service.LLMService()  # type: ignore

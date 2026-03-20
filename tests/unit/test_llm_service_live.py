@@ -1,4 +1,4 @@
-from app.services.llm_service import LLMService
+from app.services.llm_service import LLMService  # type: ignore
 
 
 def test_live_chat_text_returns_non_empty_string():
@@ -31,9 +31,7 @@ def test_live_chat_json_returns_dict():
 def test_live_stream_chat_returns_tokens():
     service = LLMService()
 
-    tokens = list(
-        service.stream_chat("Explain RAG in one or two short sentences.")
-    )
+    tokens = list(service.stream_chat("Explain RAG in one or two short sentences."))
 
     assert tokens
     assert any(token.strip() for token in tokens)
