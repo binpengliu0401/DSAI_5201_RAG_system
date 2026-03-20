@@ -5,20 +5,26 @@ from langgraph.graph import StateGraph, END
 from app.graph.state import GraphState
 from app.graph.router import route_decision, get_next_node
 from app.nodes.rewriting import rewrite_query
-from app.nodes.retrieval import retrieve_docs
+from app.services.retriever import RAGRetriever
+from app.nodes.retrieval import create_retrieval_node
 from app.nodes.generation import generate_answer
 from app.nodes.grading import grade_hallucination
 from app.utils.constants import MAX_RETRIES
 
 
 def build_graph():
+    retriever = RAGRetriever(
+        parquet_path="data/train-00000-of-00001.parquet", index_dir="data/index"
+    )
+    retriever.load()
+    retieval_node = create_retrieval_node(retriever)
 
     # Initialize graph with state schema
     graph = StateGraph(GraphState)
 
     # Register nodes
     graph.add_node("rewriting", rewrite_query)
-    graph.add_node("retrieval", retrieve_docs)
+    graph.add_node("retrieval", retieval_node)  # type: ignore
     graph.add_node("generation", generate_answer)
     graph.add_node("grading", grade_hallucination)
     graph.add_node("router", route_decision)

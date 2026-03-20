@@ -1,5 +1,5 @@
 # Environment & secrets
-.venv
+.env
 .venv/
 
 # Python
@@ -22,5 +22,5 @@ data/
 *.DS_Store
 
 # Logs
+logs/
 *.log
-logs/.venv/
