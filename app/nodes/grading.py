@@ -1,6 +1,6 @@
+import re
 import time
-from typing import Any
-from typing import Literal
+from typing import Any, Literal
 
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
@@ -11,14 +11,33 @@ from app.services.llm_service import get_llm
 from app.utils.tracer import build_trace_entry
 from config.logging import get_logger
 
+
 logger = get_logger(__name__)
+
+ClaimLabel = Literal["supported", "partial", "unsupported"]
+VerdictLabel = Literal["grounded", "partially_grounded", "unsupported"]
+CLAIM_SCORE_MAP: dict[ClaimLabel, float] = {
+    "supported": 1.0,
+    "partial": 0.5,
+    "unsupported": 0.0,
+}
+
+
+class ClaimAssessment(BaseModel):
+    claim: str
+    label: ClaimLabel
+    explanation: str = ""
 
 
 class GradingResult(BaseModel):
-    score: float
-    verdict: Literal["grounded", "partially_grounded", "unsupported"]
+    score: float | None = None
+    verdict: VerdictLabel
     explanation: str
+    claims: list[ClaimAssessment] = Field(default_factory=list)
+    supported_claims: list[str] = Field(default_factory=list)
+    partial_claims: list[str] = Field(default_factory=list)
     unsupported_claims: list[str] = Field(default_factory=list)
+    claim_count: int = 0
 
 
 GRADING_SYSTEM_PROMPT = """You are a strict hallucination grader for a Retrieval-Augmented Generation system.
@@ -27,24 +46,22 @@ Your task is to judge grounding, not universal truth.
 You must follow these rules:
 1. Use ONLY the retrieved documents as evidence.
 2. Do NOT use outside knowledge.
-3. If a claim in the answer is not supported by the retrieved documents, treat it as unsupported.
-4. Missing evidence means unsupported.
-5. Semantic similarity alone is not enough; the support must be specific enough to justify the answer.
-6. Give a lower score when unsupported claims appear.
-7. Return structured output only.
-8. The verdict field must be exactly one of: grounded, partially_grounded, unsupported.
-9. unsupported_claims must list every distinct unsupported claim as a separate short sentence.
-10. If a sentence contains multiple unsupported claims, split them into separate list items.
-11. Do not write prose in the verdict field.
-
-Scoring:
-- 1.0 means the answer is fully grounded in the retrieved documents.
-- 0.0 means the answer is completely unsupported by the retrieved documents.
-
-Verdict rules:
-- grounded: all material claims are supported by the retrieved documents.
-- partially_grounded: some claims are supported, but one or more distinct claims are unsupported.
-- unsupported: the answer is mostly or entirely unsupported by the retrieved documents.
+3. Missing evidence means unsupported.
+4. Semantic similarity alone is not enough. A claim must have specific support in the documents.
+5. Split the answer into material claims and evaluate each claim independently.
+6. Label each claim as exactly one of: supported, partial, unsupported.
+7. supported means the claim is clearly backed by the documents.
+8. partial means the claim is only partly supported, overly broad, or missing important support details.
+9. unsupported means the claim is not supported by the documents.
+10. Return one claim assessment per claim.
+11. unsupported_claims must include every distinct unsupported claim separately.
+12. partial_claims must include every distinct partially supported claim separately.
+13. supported_claims must include every distinct supported claim separately.
+14. The verdict field must be exactly one of: grounded, partially_grounded, unsupported.
+15. grounded requires all material claims to be supported.
+16. partially_grounded means there is at least one partial or unsupported claim, but not most claims.
+17. unsupported means most or all claims are unsupported.
+18. Do not use prose in the verdict field. Return structured output only.
 """
 
 
@@ -58,13 +75,80 @@ def _format_retrieved_docs(docs: list[Document]) -> str:
     return "\n\n".join(formatted_docs)
 
 
+def _is_meaningful_claim(text: str) -> bool:
+    cleaned = re.sub(r"\s+", " ", text).strip(" ,;:.!?-")
+    if len(cleaned) < 12:
+        return False
+    if not re.search(r"[A-Za-z]", cleaned):
+        return False
+
+    lowered = cleaned.lower()
+    meaningless_fragments = {
+        "and",
+        "but",
+        "while",
+        "whereas",
+        "for example",
+        "such as",
+        "which is",
+        "that is",
+        "in addition",
+        "however",
+    }
+    if lowered in meaningless_fragments:
+        return False
+
+    if re.fullmatch(r"(and|but|while|whereas)\b", lowered):
+        return False
+
+    return True
+
+
+def _split_into_claims(answer: str) -> list[str]:
+    normalized = re.sub(r"\s+", " ", answer).strip()
+    if not normalized:
+        return []
+
+    # Stage 1: coarse sentence splitting on terminal punctuation.
+    sentences = [
+        part.strip(" ,;")
+        for part in re.split(r"[.!?]+(?:\s+|$)", normalized)
+        if part.strip(" ,;")
+    ]
+
+    claims: list[str] = []
+    clause_pattern = re.compile(r";+|,\s+(?:and|but|while|whereas)\s+", flags=re.IGNORECASE)
+
+    for sentence in sentences:
+        # Stage 2: split only on semicolons and selected conjunction-led comma clauses.
+        parts = [part.strip(" ,;") for part in clause_pattern.split(sentence) if part.strip(" ,;")]
+        for part in parts:
+            if _is_meaningful_claim(part):
+                claims.append(part)
+
+    cleaned_claims: list[str] = []
+    seen: set[str] = set()
+    for claim in claims:
+        cleaned = re.sub(r"\s+", " ", claim).strip(" ,;:.!?")
+        key = cleaned.lower()
+        if key and key not in seen:
+            seen.add(key)
+            cleaned_claims.append(cleaned)
+
+    return cleaned_claims or [normalized]
+
+
+def _format_claims(claims: list[str]) -> str:
+    return "\n".join(f"[CLAIM {index}] {claim}" for index, claim in enumerate(claims, start=1))
+
+
 def _build_grading_prompt() -> ChatPromptTemplate:
     return ChatPromptTemplate.from_messages(
         [
             ("system", GRADING_SYSTEM_PROMPT),
             (
                 "human",
-                "Answer:\n{answer}\n\nRetrieved Documents:\n{context}",
+                "Answer:\n{answer}\n\nClaims:\n{claims}\n\nRetrieved Documents:\n{context}",
             ),
         ]
     )
@@ -78,32 +162,71 @@ def _compute_score(score: Any) -> float:
     return max(0.0, min(1.0, numeric_score))
 
 
-def _normalize_verdict(verdict: Any, score: float, unsupported_claims: list[str]) -> str:
+def _aggregate_claim_score(claims: list[ClaimAssessment]) -> float:
+    if not claims:
+        return 0.0
+    total = sum(CLAIM_SCORE_MAP[claim.label] for claim in claims)
+    return total / len(claims)
+
+
+def _normalize_claims(raw_claims: list[ClaimAssessment | dict[str, Any]]) -> list[ClaimAssessment]:
+    normalized_claims: list[ClaimAssessment] = []
+    for raw_claim in raw_claims:
+        if hasattr(raw_claim, "model_dump"):
+            claim = ClaimAssessment.model_validate(raw_claim.model_dump())
+        else:
+            claim = ClaimAssessment.model_validate(raw_claim)
+        cleaned_text = claim.claim.strip()
+        if not cleaned_text:
+            continue
+        normalized_claims.append(
+            ClaimAssessment(
+                claim=cleaned_text,
+                label=claim.label,
+                explanation=claim.explanation.strip(),
+            )
+        )
+    return normalized_claims
+
+
+def _derive_claim_lists(claims: list[ClaimAssessment]) -> tuple[list[str], list[str], list[str]]:
+    supported = [claim.claim for claim in claims if claim.label == "supported"]
+    partial = [claim.claim for claim in claims if claim.label == "partial"]
+    unsupported = [claim.claim for claim in claims if claim.label == "unsupported"]
+    return supported, partial, unsupported
+
+
+def _normalize_verdict(
+    verdict: Any,
+    score: float,
+    partial_claims: list[str],
+    unsupported_claims: list[str],
+    claim_count: int,
+) -> VerdictLabel:
+    has_non_grounded_claims = bool(partial_claims or unsupported_claims)
+
     if isinstance(verdict, str):
         normalized = verdict.strip().lower()
+        if normalized == "grounded" and has_non_grounded_claims:
+            return "partially_grounded"
+        if normalized == "unsupported" and claim_count > 0 and not unsupported_claims and score > 0.25:
+            return "partially_grounded"
         if normalized in {"grounded", "partially_grounded", "unsupported"}:
-            return normalized
-
+            return normalized  # type: ignore[return-value]
         if "partially" in normalized:
             return "partially_grounded"
-        if "not fully" in normalized or "contains an unsupported claim" in normalized:
-            return "partially_grounded"
-        if "not supported" in normalized or "unsupported" in normalized:
+        if "unsupported" in normalized or "not supported" in normalized:
             return "unsupported"
-        if "fully supported" in normalized or "fully grounded" in normalized:
-            return "grounded"
-        if "grounded" in normalized and unsupported_claims:
-            return "partially_grounded"
         if "grounded" in normalized:
             return "grounded"
 
-    if unsupported_claims:
-        return "unsupported" if score <= 0.25 else "partially_grounded"
-    if score >= 0.85:
-        return "grounded"
-    if score <= 0.25:
+    if claim_count == 0:
         return "unsupported"
-    return "partially_grounded"
+    if unsupported_claims and len(unsupported_claims) >= max(1, (claim_count + 1) // 2):
+        return "unsupported"
+    if unsupported_claims or partial_claims or score < 0.999:
+        return "partially_grounded"
+    return "grounded"
 
 
 def _normalize_result(result: Any) -> GradingResult:
@@ -117,28 +240,52 @@ def _normalize_result(result: Any) -> GradingResult:
     else:
         normalized = GradingResult.model_validate(result)
 
-    unsupported_claims = [
-        claim.strip()
-        for claim in normalized.unsupported_claims
-        if isinstance(claim, str) and claim.strip()
-    ]
+    normalized_claims = _normalize_claims(normalized.claims)
+    if normalized_claims:
+        supported_claims, partial_claims, unsupported_claims = _derive_claim_lists(normalized_claims)
+        score = _aggregate_claim_score(normalized_claims)
+        claim_count = len(normalized_claims)
+    else:
+        supported_claims = [claim.strip() for claim in normalized.supported_claims if claim.strip()]
+        partial_claims = [claim.strip() for claim in normalized.partial_claims if claim.strip()]
+        unsupported_claims = [claim.strip() for claim in normalized.unsupported_claims if claim.strip()]
+        claim_count = normalized.claim_count or (
+            len(supported_claims) + len(partial_claims) + len(unsupported_claims)
+        )
+        score = _compute_score(normalized.score)
 
-    score = _compute_score(normalized.score)
-    verdict = _normalize_verdict(normalized.verdict, score, unsupported_claims)
+    verdict = _normalize_verdict(
+        normalized.verdict,
+        score,
+        partial_claims,
+        unsupported_claims,
+        claim_count,
+    )
 
     return GradingResult(
         score=score,
-        verdict=verdict,  # type: ignore[arg-type]
+        verdict=verdict,
         explanation=(normalized.explanation or "").strip(),
+        claims=normalized_claims,
+        supported_claims=supported_claims,
+        partial_claims=partial_claims,
         unsupported_claims=unsupported_claims,
+        claim_count=claim_count,
     )
 
 
+def _should_escalate(result: GradingResult) -> bool:
+    # Reserved for a future stronger-model fallback without changing the node contract.
+    return False
+
+
 def _grade_answer(answer: str, retrieved_docs: list[Document]) -> GradingResult:
+    claims = _split_into_claims(answer)
     logger.info(
-        "Invoking grading LLM answer_chars=%d doc_count=%d",
+        "Invoking grading LLM answer_chars=%d doc_count=%d claim_count=%d",
         len(answer.strip()),
         len(retrieved_docs),
+        len(claims),
     )
     prompt = _build_grading_prompt()
     llm = get_llm()
@@ -147,10 +294,14 @@ def _grade_answer(answer: str, retrieved_docs: list[Document]) -> GradingResult:
     result = chain.invoke(
         {
             "answer": answer,
+            "claims": _format_claims(claims),
             "context": _format_retrieved_docs(retrieved_docs),
         }
     )
-    return _normalize_result(result)
+    normalized_result = _normalize_result(result)
+    if _should_escalate(normalized_result):
+        logger.info("Grading escalation hook triggered but no fallback model is configured")
+    return normalized_result
 
 
 def _preview_text(text: str, limit: int = 120) -> str:
@@ -182,7 +333,7 @@ def grade_hallucination(state: GraphState) -> dict:
                 score=0.0,
                 verdict="unsupported",
                 explanation="Empty answer cannot be grounded in retrieved documents.",
-                unsupported_claims=[],
+                claim_count=0,
             )
         elif not retrieved_docs:
             logger.info("Skipping grading LLM because no retrieved documents are available")
@@ -190,20 +341,22 @@ def grade_hallucination(state: GraphState) -> dict:
                 score=0.0,
                 verdict="unsupported",
                 explanation="No retrieved documents were available for grounding.",
-                unsupported_claims=[],
+                claim_count=max(1, len(_split_into_claims(answer))),
             )
         else:
-            result = _grade_answer(answer, retrieved_docs)
+            result = _normalize_result(_grade_answer(answer, retrieved_docs))
 
         score = _compute_score(result.score)
         unsupported_claim_count = len(result.unsupported_claims)
+        claim_count = result.claim_count
         latency = round((time.time() - start) * 1000, 2)
 
         logger.info(
-            "Grading completed score=%.2f verdict=%s unsupported_claims=%d doc_count=%d explanation=%s",
+            "Grading completed score=%.2f verdict=%s unsupported_claims=%d claim_count=%d doc_count=%d explanation=%s",
             score,
             result.verdict,
             unsupported_claim_count,
+            claim_count,
             len(retrieved_docs),
             _preview_text(result.explanation),
         )
@@ -223,7 +376,7 @@ def grade_hallucination(state: GraphState) -> dict:
                         "hallucination_score": score,
                         "verdict": result.verdict,
                         "unsupported_claim_count": unsupported_claim_count,
-                        "doc_count": len(retrieved_docs),
+                        "claim_count": claim_count,
                     },
                 )
             ],
@@ -242,7 +395,8 @@ def grade_hallucination(state: GraphState) -> dict:
                     summary="grading failed; returned score=0.0",
                     key_output={
                         "hallucination_score": 0.0,
-                        "doc_count": len(retrieved_docs),
+                        "unsupported_claim_count": 0,
+                        "claim_count": 0,
                     },
                 )
             ],
