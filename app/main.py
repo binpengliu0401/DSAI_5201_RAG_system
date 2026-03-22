@@ -6,11 +6,13 @@ from app.utils.tracer import print_trace
 from app.utils.constants import MAX_RETRIES
 from config.logging import configure_logging, get_logger
 from config.settings import settings
+from scripts.setup_data import ensure_data_ready
 
 
 configure_logging(settings.runtime.log_level)
 logger = get_logger(__name__)
 
+ensure_data_ready()
 
 # Initialize state and invoke the full RAG graph, return final state as dict
 def run_workflow(query: str) -> dict:
@@ -38,25 +40,7 @@ def run_workflow(query: str) -> dict:
     )
     return final_state
 
-
-# Run a single query from terminal input and print the execution trace
-def main():
-    print("\nRAG Q&A System — Academic Paper Assistant")
-    print("Type 'exit' to quit\n")
-
-    while True:
-        query = input("Question: ").strip()
-
-        if query.lower() == "exit":
-            break
-
-        if not query:
-            continue
-
-        print("\nProcessing...\n")
-        result = run_workflow(query)
-        print_trace(result)
-
-
 if __name__ == "__main__":
-    main()
+    import sys
+    query = sys.argv[1] if len(sys.argv) > 1 else "What is chain of thought prompting?"
+    run_workflow(query)

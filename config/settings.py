@@ -146,7 +146,9 @@ def load_settings() -> SystemSettings:
     backend_ws_path = _first(("BACKEND_WS_PATH",), "/ws/rag") or "/ws/rag"
     backend_api_prefix = _first(("BACKEND_API_PREFIX",), "") or ""
     backend_public_url = _first(("BACKEND_PUBLIC_URL",))
-    default_backend_public_host = "127.0.0.1" if backend_host == "0.0.0.0" else backend_host
+    default_backend_public_host = (
+        "127.0.0.1" if backend_host == "0.0.0.0" else backend_host
+    )
     backend_public_host = (
         _host_from_url(backend_public_url, default_backend_public_host)
         if backend_public_url
@@ -197,9 +199,11 @@ def load_settings() -> SystemSettings:
 
     llm = LLMSettings(
         api_key=_first(("LLM_API_KEY",)),
-        model_name=_first(("LLM_MODEL",), "qwen-plus") or "qwen-plus",
+        model_name=_first(("LLM_MODEL",), "qwen-turbo") or "qwen-turbo",
         base_url=(
-            _first(("LLM_BASE_URL",), "https://dashscope.aliyuncs.com/compatible-mode/v1")
+            _first(
+                ("LLM_BASE_URL",), "https://dashscope.aliyuncs.com/compatible-mode/v1"
+            )
             or "https://dashscope.aliyuncs.com/compatible-mode/v1"
         ),
         temperature=_get_float(("LLM_TEMPERATURE",), 0.0),

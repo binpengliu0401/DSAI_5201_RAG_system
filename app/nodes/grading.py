@@ -306,6 +306,7 @@ def _should_escalate(result: GradingResult) -> bool:
 
 def _grade_answer(answer: str, retrieved_docs: list[Document]) -> GradingResult:
     claims = _split_into_claims(answer)
+    claims = claims[:8]
     logger.info(
         "Invoking grading LLM answer_chars=%d doc_count=%d claim_count=%d",
         len(answer.strip()),
