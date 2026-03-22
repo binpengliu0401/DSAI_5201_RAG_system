@@ -117,11 +117,17 @@ def _split_into_claims(answer: str) -> list[str]:
     ]
 
     claims: list[str] = []
-    clause_pattern = re.compile(r";+|,\s+(?:and|but|while|whereas)\s+", flags=re.IGNORECASE)
+    clause_pattern = re.compile(
+        r";+|,\s+(?:and|but|while|whereas)\s+", flags=re.IGNORECASE
+    )
 
     for sentence in sentences:
         # Stage 2: split only on semicolons and selected conjunction-led comma clauses.
-        parts = [part.strip(" ,;") for part in clause_pattern.split(sentence) if part.strip(" ,;")]
+        parts = [
+            part.strip(" ,;")
+            for part in clause_pattern.split(sentence)
+            if part.strip(" ,;")
+        ]
         for part in parts:
             if _is_meaningful_claim(part):
                 claims.append(part)
@@ -139,7 +145,9 @@ def _split_into_claims(answer: str) -> list[str]:
 
 
 def _format_claims(claims: list[str]) -> str:
-    return "\n".join(f"[CLAIM {index}] {claim}" for index, claim in enumerate(claims, start=1))
+    return "\n".join(
+        f"[CLAIM {index}] {claim}" for index, claim in enumerate(claims, start=1)
+    )
 
 
 def _build_grading_prompt() -> ChatPromptTemplate:
@@ -169,11 +177,13 @@ def _aggregate_claim_score(claims: list[ClaimAssessment]) -> float:
     return total / len(claims)
 
 
-def _normalize_claims(raw_claims: list[ClaimAssessment | dict[str, Any]]) -> list[ClaimAssessment]:
+def _normalize_claims(
+    raw_claims: list[ClaimAssessment | dict[str, Any]],
+) -> list[ClaimAssessment]:
     normalized_claims: list[ClaimAssessment] = []
     for raw_claim in raw_claims:
         if hasattr(raw_claim, "model_dump"):
-            claim = ClaimAssessment.model_validate(raw_claim.model_dump())
+            claim = ClaimAssessment.model_validate(raw_claim.model_dump())  # type: ignore
         else:
             claim = ClaimAssessment.model_validate(raw_claim)
         cleaned_text = claim.claim.strip()
@@ -189,7 +199,9 @@ def _normalize_claims(raw_claims: list[ClaimAssessment | dict[str, Any]]) -> lis
     return normalized_claims
 
 
-def _derive_claim_lists(claims: list[ClaimAssessment]) -> tuple[list[str], list[str], list[str]]:
+def _derive_claim_lists(
+    claims: list[ClaimAssessment],
+) -> tuple[list[str], list[str], list[str]]:
     supported = [claim.claim for claim in claims if claim.label == "supported"]
     partial = [claim.claim for claim in claims if claim.label == "partial"]
     unsupported = [claim.claim for claim in claims if claim.label == "unsupported"]
@@ -209,7 +221,12 @@ def _normalize_verdict(
         normalized = verdict.strip().lower()
         if normalized == "grounded" and has_non_grounded_claims:
             return "partially_grounded"
-        if normalized == "unsupported" and claim_count > 0 and not unsupported_claims and score > 0.25:
+        if (
+            normalized == "unsupported"
+            and claim_count > 0
+            and not unsupported_claims
+            and score > 0.25
+        ):
             return "partially_grounded"
         if normalized in {"grounded", "partially_grounded", "unsupported"}:
             return normalized  # type: ignore[return-value]
@@ -240,15 +257,23 @@ def _normalize_result(result: Any) -> GradingResult:
     else:
         normalized = GradingResult.model_validate(result)
 
-    normalized_claims = _normalize_claims(normalized.claims)
+    normalized_claims = _normalize_claims(normalized.claims)  # type: ignore
     if normalized_claims:
-        supported_claims, partial_claims, unsupported_claims = _derive_claim_lists(normalized_claims)
+        supported_claims, partial_claims, unsupported_claims = _derive_claim_lists(
+            normalized_claims
+        )
         score = _aggregate_claim_score(normalized_claims)
         claim_count = len(normalized_claims)
     else:
-        supported_claims = [claim.strip() for claim in normalized.supported_claims if claim.strip()]
-        partial_claims = [claim.strip() for claim in normalized.partial_claims if claim.strip()]
-        unsupported_claims = [claim.strip() for claim in normalized.unsupported_claims if claim.strip()]
+        supported_claims = [
+            claim.strip() for claim in normalized.supported_claims if claim.strip()
+        ]
+        partial_claims = [
+            claim.strip() for claim in normalized.partial_claims if claim.strip()
+        ]
+        unsupported_claims = [
+            claim.strip() for claim in normalized.unsupported_claims if claim.strip()
+        ]
         claim_count = normalized.claim_count or (
             len(supported_claims) + len(partial_claims) + len(unsupported_claims)
         )
@@ -300,7 +325,9 @@ def _grade_answer(answer: str, retrieved_docs: list[Document]) -> GradingResult:
     )
     normalized_result = _normalize_result(result)
     if _should_escalate(normalized_result):
-        logger.info("Grading escalation hook triggered but no fallback model is configured")
+        logger.info(
+            "Grading escalation hook triggered but no fallback model is configured"
+        )
     return normalized_result
 
 
@@ -336,7 +363,9 @@ def grade_hallucination(state: GraphState) -> dict:
                 claim_count=0,
             )
         elif not retrieved_docs:
-            logger.info("Skipping grading LLM because no retrieved documents are available")
+            logger.info(
+                "Skipping grading LLM because no retrieved documents are available"
+            )
             result = GradingResult(
                 score=0.0,
                 verdict="unsupported",

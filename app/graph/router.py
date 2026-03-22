@@ -20,7 +20,9 @@ def route_decision(state: GraphState) -> dict:
     # Decision logic
     if score >= HALLUCINATION_THRESHOLD:
         decision = "output"
-        summary = f"Score {score} >= threshold {HALLUCINATION_THRESHOLD} - outputting answer"
+        summary = (
+            f"Score {score} >= threshold {HALLUCINATION_THRESHOLD} - outputting answer"
+        )
     elif retry_count < max_retries:
         decision = "retry"
         retry_count += 1
@@ -56,7 +58,5 @@ def get_next_node(state: GraphState) -> str:
     decision = state["final_decision"]
     if decision == "retry":
         return "rewriting"
-    elif decision == "output":
+    else:
         return "output"
-    else:  # "stop"
-        return "stop output"
