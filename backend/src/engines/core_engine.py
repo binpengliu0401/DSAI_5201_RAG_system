@@ -4,7 +4,7 @@ import asyncio
 import time
 from typing import Any, AsyncIterator
 
-from app.main import run_workflow
+from main import run_workflow
 from backend.src.engines.base import RAGEngine
 from backend.src.schemas.events import (
     AnswerReplacedEvent,
@@ -34,7 +34,7 @@ def _doc_to_event(index: int, doc: Any) -> RetrievedDoc:
 
 
 class CoreRAGEngine(RAGEngine):
-    async def run(self, query: str) -> AsyncIterator[ServerEvent]:
+    async def run(self, query: str) -> AsyncIterator[ServerEvent]: # type: ignore
         run_id = f"run-{int(time.time() * 1000)}"
         yield RunStartedEvent(runId=run_id, query=query)
 

@@ -47,11 +47,9 @@ MathMind-RAG/
 │   ├── services/
 │   │   ├── llm_service.py        # Qwen via DashScope (LangChain-compatible)
 │   │   └── retriever.py          # RAGRetriever — end-to-end retrieval pipeline
-│   ├── utils/
-│   │   ├── constants.py          # Environment variables and defaults
-│   │   └── tracer.py             # build_trace_entry() helper
-│   ├── api/                      # FastAPI routes
-│   └── main.py                   # CLI entry point
+│   └── utils/
+│       ├── constants.py          # Environment variables and defaults
+│       └── tracer.py             # build_trace_entry() helper
 │
 ├── backend/                      # WebSocket + FastAPI server
 │   ├── src/
@@ -61,42 +59,57 @@ MathMind-RAG/
 │   │   ├── engines/
 │   │   │   ├── core_engine.py    # Full RAG pipeline engine
 │   │   │   └── fake_engine.py    # Mock engine for frontend demo
-│   │   ├── schemas/              # Request / response models
+│   │   ├── schemas/
+│   │   │   ├── events.py         # WebSocket event types
+│   │   │   └── messages.py       # Request / response models
+│   │   ├── services/
+│   │   │   └── session_service.py
+│   │   ├── config.py             # Backend-specific config
+│   │   ├── dependencies.py       # FastAPI dependency injection
 │   │   └── main.py               # FastAPI app factory
 │   └── run.py                    # Backend entry point
 │
 ├── web/                          # React frontend
 │   ├── src/
-│   │   ├── app/                  # Components, hooks, types
+│   │   ├── app/
+│   │   │   ├── components/       # UI components (answer-card, reasoning-panel, etc.)
+│   │   │   ├── hooks/            # use-rag-session.ts
+│   │   │   ├── lib/              # WebSocket client, transport, logger
+│   │   │   └── types/            # TypeScript type definitions
 │   │   └── styles/               # CSS and theme
 │   ├── index.html
 │   └── package.json
 │
 ├── config/                       # Centralized configuration
 │   ├── logging.py                # Logging setup
-│   └── settings.py               # Pydantic settings model
+│   └── settings.py               # Settings model (reads from .env)
 │
 ├── scripts/
-│   └── build_index.py            # One-time FAISS index builder
+│   ├── setup_data.py             # Auto-download dataset and build FAISS index
+│   └── build_index.py            # Manual FAISS index builder
 │
 ├── data/                         # Not in git
 │   ├── train-00000-of-00001.parquet   # AI/Math paper dataset
 │   └── index/                         # Generated FAISS index files
 │
 ├── tests/
-│   ├── unit/                     # pytest unit tests
+│   ├── unit/                     # pytest unit tests (45 tests, all passing)
 │   │   ├── test_rewriting.py
 │   │   ├── test_retrieval.py
 │   │   ├── test_grading.py
+│   │   ├── test_grading_execution.py
+│   │   ├── test_grading_execution_live.py
 │   │   ├── test_workflow.py
 │   │   ├── test_llm_service.py
 │   │   ├── test_llm_service_live.py
-│   │   └── test_backend_service.py
+│   │   ├── test_backend_service.py
+│   │   └── test_settings.py
 │   └── eval/                     # Quantitative evaluation scripts
 │       ├── eval_behavior.py
 │       ├── eval_rewrite.py
 │       └── eval_rewriting_assert.py
 │
+├── main.py                       # Pipeline entry point — exposes run_workflow()
 ├── conftest.py                   # pytest path configuration
 ├── requirements.txt
 ├── .env.example
@@ -124,21 +137,24 @@ cp .env.example .env
 
 ## Data & Index Setup (First Time Only)
 
-Download the dataset from HuggingFace and place it in `data/`:
+Run the setup script to automatically download the dataset and build the FAISS index:
 
+```bash
+python -m scripts.setup_data
 ```
-data/train-00000-of-00001.parquet
-```
 
-Dataset source: <https://huggingface.co/datasets/fzyzcjy/ai_math_paper_list>
+This will:
 
-Then build the FAISS index:
+1. Download `train-00000-of-00001.parquet` from HuggingFace if not present
+2. Build `data/index/faiss_flat.index` and `data/index/documents.pkl` if not present
+
+To rebuild the index manually:
 
 ```bash
 python -m scripts.build_index
 ```
 
-This generates `data/index/faiss_flat.index` and `data/index/documents.pkl`.
+Dataset source: <https://huggingface.co/datasets/fzyzcjy/ai_math_paper_list>
 
 ---
 
@@ -146,23 +162,30 @@ This generates `data/index/faiss_flat.index` and `data/index/documents.pkl`.
 
 See `.env.example`. Each person fills in their own `.env` — never commit this file.
 
-| Variable | Description |
-|----------|-------------|
-| `LLM_API_KEY` | API key for the configured LLM provider |
-| `RAG_ENGINE_MODE` | `fake` for frontend demo, `core` for full pipeline |
-| `FAISS_INDEX_PATH` | Path to FAISS index directory |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LLM_API_KEY` | DashScope API key for Qwen | — |
+| `RAG_ENGINE_MODE` | `core` for full pipeline, `fake` for frontend demo | `fake` |
+| `FAISS_INDEX_PATH` | Path to FAISS index directory | `./data/faiss_index` |
+| `LLM_MODEL` | Qwen model name | `qwen-turbo` |
 
 ---
 
 ## Running the System
 
-**Backend** (Terminal 1):
+**Step 1 — Initialize data** (first time only):
+
+```bash
+python -m scripts.setup_data
+```
+
+**Step 2 — Start backend** (Terminal 1):
 
 ```bash
 python -m backend.run
 ```
 
-**Frontend** (Terminal 2):
+**Step 3 — Start frontend** (Terminal 2):
 
 ```bash
 cd web
@@ -172,6 +195,27 @@ npm run dev
 
 Frontend available at `http://localhost:5173`.  
 Backend running at `http://localhost:8000`.
+
+---
+
+## CLI Usage
+
+Run the full pipeline from the command line without the frontend:
+
+```bash
+python main.py "What is chain of thought prompting?"
+```
+
+---
+
+## Recommended Demo Queries
+
+The dataset covers AI and Math research papers. The following queries work well:
+
+- `What is chain of thought prompting?`
+- `How does zero-shot reasoning work in LLMs?`
+- `What is reinforcement learning from human feedback?`
+- `How do large language models solve math problems?`
 
 ---
 
@@ -199,7 +243,6 @@ discussing with the system architect first.
 - `retrieved_docs` must be `List[Document]` from `langchain_core.documents`
 - On error, write to `error_message` and return gracefully — do not raise exceptions
 - Use `build_trace_entry()` from `app/utils/tracer.py` for trace entries
-- LLM: Qwen (`qwen-plus`) via DashScope, LangChain-compatible interface
 - Score threshold: `>= 0.7` acceptable, `< 0.7` triggers retry
 
 ---
