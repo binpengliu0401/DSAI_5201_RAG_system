@@ -1,37 +1,48 @@
-from app.services.llm_service import LLMService  # type: ignore
+from pydantic import BaseModel
+import pytest
+
+from app.services.llm_service import get_llm
+from app.utils.constants import LLM_API_KEY
 
 
-def test_live_chat_text_returns_non_empty_string():
-    service = LLMService()
+pytestmark = pytest.mark.skipif(
+    not LLM_API_KEY,
+    reason="LLM_API_KEY is not configured for live LLM smoke tests.",
+)
 
-    result = service.chat_text(
+
+class RagSummary(BaseModel):
+    term: str
+    benefit: str
+
+
+def test_live_get_llm_invoke_returns_non_empty_content():
+    llm = get_llm()
+
+    response = llm.invoke(
         "What is Retrieval-Augmented Generation? Answer in one short paragraph."
     )
 
-    assert isinstance(result, str)
-    assert result.strip()
+    assert isinstance(response.content, str)
+    assert response.content.strip()
 
 
-def test_live_chat_json_returns_dict():
-    service = LLMService()
+def test_live_get_llm_structured_output_returns_expected_fields():
+    llm = get_llm().with_structured_output(RagSummary)
 
-    result = service.chat_json(
-        prompt=(
-            'Return a JSON object with keys "term" and "benefit". '
-            "Describe RAG briefly."
-        ),
-        system_prompt="You are a precise assistant that returns valid JSON only.",
+    response = llm.invoke(
+        'Describe RAG as JSON with fields "term" and "benefit".'
     )
 
-    assert isinstance(result, dict)
-    assert "term" in result
-    assert "benefit" in result
+    assert isinstance(response, RagSummary)
+    assert response.term.strip()
+    assert response.benefit.strip()
 
 
-def test_live_stream_chat_returns_tokens():
-    service = LLMService()
+def test_live_get_llm_stream_returns_content_chunks():
+    llm = get_llm()
 
-    tokens = list(service.stream_chat("Explain RAG in one or two short sentences."))
+    chunks = list(llm.stream("Explain RAG in one or two short sentences."))
 
-    assert tokens
-    assert any(token.strip() for token in tokens)
+    assert chunks
+    assert any(getattr(chunk, "content", "").strip() for chunk in chunks)
