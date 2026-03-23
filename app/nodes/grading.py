@@ -22,6 +22,7 @@ CLAIM_SCORE_MAP: dict[ClaimLabel, float] = {
 }
 
 ANSWER_TYPE = Literal["substantive", "abstention", "off_topic"]
+RETRIEVAL_SUPPORT = Literal["strong", "weak", "none"]
 ABSTENTION_PHRASES = (
     "i cannot find sufficient information",
     "i cannot find enough information",
@@ -39,6 +40,8 @@ OFF_TOPIC_META_PHRASES = (
     "i do not have browsing capability",
     "i don't have browsing capability",
     "i cannot access external websites",
+    "i cannot help with that request",
+    "i am unable to comply with that request",
 )
 STOPWORDS = {
     "a",
@@ -68,6 +71,11 @@ STOPWORDS = {
     "why",
     "with",
 }
+TOPIC_MISS_PHRASES = (
+    "not related to the question",
+    "does not answer the question",
+    "unrelated to the query",
+)
 
 
 class ClaimAssessment(BaseModel):
@@ -85,6 +93,14 @@ class GradingResult(BaseModel):
     partial_claims: list[str] = Field(default_factory=list)
     unsupported_claims: list[str] = Field(default_factory=list)
     claim_count: int = 0
+
+
+class AnswerTypeClassification(BaseModel):
+    answer_type: ANSWER_TYPE
+
+
+class EvidenceSufficiencyResult(BaseModel):
+    answer: Literal["YES", "NO"]
 
 
 GRADING_SYSTEM_PROMPT = """You are a strict hallucination grader for a Retrieval-Augmented Generation system.
@@ -137,7 +153,7 @@ def _is_abstention_answer(answer: str) -> bool:
 
 def _is_off_topic_answer(answer: str) -> bool:
     normalized = answer.lower()
-    return any(phrase in normalized for phrase in OFF_TOPIC_META_PHRASES)
+    return any(phrase in normalized for phrase in OFF_TOPIC_META_PHRASES + TOPIC_MISS_PHRASES)
 
 
 def _query_support_in_docs(query: str, retrieved_docs: list[Document]) -> float:
@@ -152,16 +168,102 @@ def _query_support_in_docs(query: str, retrieved_docs: list[Document]) -> float:
     return matched_terms / len(query_terms)
 
 
-def _classify_answer(answer: str) -> ANSWER_TYPE:
+def _is_uncertain_answer_type(answer: str) -> bool:
+    stripped = answer.strip()
+    if not stripped:
+        return False
+    word_count = len(re.findall(r"\w+", stripped))
+    has_abstention = _is_abstention_answer(stripped)
+    has_off_topic = _is_off_topic_answer(stripped)
+    return word_count <= 12 or (has_abstention and has_off_topic) or (
+        not has_abstention and not has_off_topic and word_count <= 20
+    )
+
+
+def _build_answer_type_prompt() -> ChatPromptTemplate:
+    return ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                'Classify the answer as exactly one of: "substantive", "abstention", "off_topic". '
+                "abstention means the answer says the documents do not contain enough information. "
+                "off_topic means the answer is meta, irrelevant, or refuses for reasons unrelated to the retrieved evidence. "
+                "Return structured output only.",
+            ),
+            ("human", "User query:\n{query}\n\nAnswer:\n{answer}"),
+        ]
+    )
+
+
+def _classify_answer_with_llm(query: str, answer: str) -> ANSWER_TYPE:
+    prompt = _build_answer_type_prompt()
+    llm = get_llm("grading")
+    structured_llm = llm.with_structured_output(AnswerTypeClassification)
+    result = (prompt | structured_llm).invoke({"query": query, "answer": answer})
+    return result.answer_type  # type: ignore[return-value]
+
+
+def _classify_answer(query: str, answer: str) -> ANSWER_TYPE:
     if _is_abstention_answer(answer):
         return "abstention"
     if _is_off_topic_answer(answer):
         return "off_topic"
+    if _is_uncertain_answer_type(answer):
+        try:
+            return _classify_answer_with_llm(query, answer)
+        except Exception:
+            logger.debug("Falling back to heuristic answer classification", exc_info=True)
     return "substantive"
 
 
-def _is_abstention_justified(query: str, retrieved_docs: list[Document]) -> bool:
-    return _query_support_in_docs(query, retrieved_docs) < 0.5
+def _build_evidence_sufficiency_prompt() -> ChatPromptTemplate:
+    return ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                'Given the user query and retrieved documents, determine whether there is enough information in the documents to answer the query. '
+                'Answer exactly "YES" or "NO". YES means the documents contain enough information to answer. NO means they do not.',
+            ),
+            (
+                "human",
+                "User query:\n{query}\n\nRetrieved documents:\n{context}",
+            ),
+        ]
+    )
+
+
+def _llm_has_enough_evidence(query: str, retrieved_docs: list[Document]) -> bool:
+    prompt = _build_evidence_sufficiency_prompt()
+    llm = get_llm("grading")
+    structured_llm = llm.with_structured_output(EvidenceSufficiencyResult)
+    result = (prompt | structured_llm).invoke(
+        {"query": query, "context": _format_retrieved_docs(retrieved_docs)}
+    )
+    return result.answer == "YES"  # type: ignore[return-value]
+
+
+def _resolve_retrieval_support(overlap_ratio: float, has_enough_evidence: bool | None = None) -> RETRIEVAL_SUPPORT:
+    if has_enough_evidence is True:
+        return "strong"
+    if has_enough_evidence is False:
+        return "none" if overlap_ratio < 0.2 else "weak"
+    if overlap_ratio < 0.2:
+        return "none"
+    if overlap_ratio < 0.6:
+        return "weak"
+    return "strong"
+
+
+def _evaluate_abstention(query: str, retrieved_docs: list[Document]) -> tuple[bool, RETRIEVAL_SUPPORT]:
+    overlap_ratio = _query_support_in_docs(query, retrieved_docs)
+    if overlap_ratio < 0.2:
+        return True, "none"
+    if overlap_ratio > 0.6:
+        return False, "strong"
+
+    has_enough_evidence = _llm_has_enough_evidence(query, retrieved_docs)
+    retrieval_support = _resolve_retrieval_support(overlap_ratio, has_enough_evidence)
+    return (not has_enough_evidence), retrieval_support
 
 
 def _apply_score_adjustment(
@@ -169,9 +271,12 @@ def _apply_score_adjustment(
     grounding_score: float,
     answer_type: ANSWER_TYPE,
     abstention_justified: bool | None,
+    retrieval_support: RETRIEVAL_SUPPORT,
 ) -> tuple[float, str]:
     if answer_type == "abstention":
         if abstention_justified:
+            if retrieval_support == "weak":
+                return min(grounding_score, 0.4), "justified_abstention_weak_support"
             return min(grounding_score, 0.5), "justified_abstention"
         return min(grounding_score, 0.2), "unjustified_abstention"
     if answer_type == "off_topic":
@@ -469,6 +574,7 @@ def grade_hallucination(state: GraphState) -> dict:
                 claim_count=0,
             )
             answer_type: ANSWER_TYPE = "substantive"
+            retrieval_support: RETRIEVAL_SUPPORT = "none"
             abstention_justified: bool | None = None
             grounding_score = 0.0
             final_score = 0.0
@@ -483,7 +589,8 @@ def grade_hallucination(state: GraphState) -> dict:
                 explanation="No retrieved documents were available for grounding.",
                 claim_count=max(1, len(_split_into_claims(answer))),
             )
-            answer_type = _classify_answer(answer)
+            answer_type = _classify_answer(query, answer)
+            retrieval_support = "none"
             abstention_justified = None
             grounding_score = 0.0
             final_score = 0.0
@@ -491,16 +598,20 @@ def grade_hallucination(state: GraphState) -> dict:
         else:
             result = _normalize_result(_grade_answer(answer, retrieved_docs))
             grounding_score = _compute_score(result.score)
-            answer_type = _classify_answer(answer)
-            abstention_justified = (
-                _is_abstention_justified(query, retrieved_docs)
-                if answer_type == "abstention"
-                else None
-            )
+            answer_type = _classify_answer(query, answer)
+            overlap_ratio = _query_support_in_docs(query, retrieved_docs)
+            retrieval_support = _resolve_retrieval_support(overlap_ratio)
+            if answer_type == "abstention":
+                abstention_justified, retrieval_support = _evaluate_abstention(
+                    query, retrieved_docs
+                )
+            else:
+                abstention_justified = None
             final_score, adjustment_reason = _apply_score_adjustment(
                 grounding_score=grounding_score,
                 answer_type=answer_type,
                 abstention_justified=abstention_justified,
+                retrieval_support=retrieval_support,
             )
 
         score = final_score
@@ -515,8 +626,10 @@ def grade_hallucination(state: GraphState) -> dict:
             "score_adjustment",
             {
                 "grounding_score": grounding_score,
+                "grounding_score_raw": grounding_score,
                 "final_score": score,
                 "answer_type": answer_type,
+                "retrieval_support": retrieval_support,
                 "abstention_justified": abstention_justified,
                 "claims_count": claim_count,
                 "supported": supported_claim_count,
@@ -527,9 +640,11 @@ def grade_hallucination(state: GraphState) -> dict:
         )
 
         logger.info(
-            "Grading completed score=%.2f verdict=%s unsupported_claims=%d claim_count=%d doc_count=%d explanation=%s",
+            "Grading completed score=%.2f verdict=%s answer_type=%s adjustment_reason=%s unsupported_claims=%d claim_count=%d doc_count=%d explanation=%s",
             score,
             result.verdict,
+            answer_type,
+            adjustment_reason,
             unsupported_claim_count,
             claim_count,
             len(retrieved_docs),

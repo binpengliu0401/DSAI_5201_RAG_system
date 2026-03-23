@@ -36,7 +36,11 @@ class LLMTraceCallbackHandler(BaseCallbackHandler):
 
     def on_llm_end(self, response: Any, *, run_id: UUID, **kwargs: Any) -> None:
         started_at = self._start_times.pop(self._key(run_id), None)
-        latency_ms = round((time.perf_counter() - started_at) * 1000, 2) if started_at else None
+        latency_ms = (
+            round((time.perf_counter() - started_at) * 1000, 2)
+            if started_at is not None
+            else None
+        )
         log_stage_event(
             "llm",
             "llm_call",
@@ -50,7 +54,11 @@ class LLMTraceCallbackHandler(BaseCallbackHandler):
 
     def on_llm_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:
         started_at = self._start_times.pop(self._key(run_id), None)
-        latency_ms = round((time.perf_counter() - started_at) * 1000, 2) if started_at else None
+        latency_ms = (
+            round((time.perf_counter() - started_at) * 1000, 2)
+            if started_at is not None
+            else None
+        )
         log_stage_event(
             "llm",
             "llm_call_failed",
@@ -90,10 +98,20 @@ def _model_for_task(task: LLMTask = "default") -> str:
 def get_llm(task: LLMTask = "default"):
     model = _model_for_task(task)
     normalized_base_url = _normalize_openai_base_url(settings.llm.base_url)
+    endpoint = _chat_completions_endpoint(settings.llm.base_url)
     callback = LLMTraceCallbackHandler(
         task=task,
         model=model,
-        endpoint=_chat_completions_endpoint(settings.llm.base_url),
+        endpoint=endpoint,
+    )
+    log_stage_event(
+        "llm",
+        "llm_client_resolved",
+        {
+            "task": task,
+            "model": model,
+            "endpoint": endpoint,
+        },
     )
     return ChatOpenAI(
         model=model,
