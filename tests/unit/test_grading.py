@@ -13,8 +13,9 @@ from app.nodes import grading
 from app.nodes.grading import grade_hallucination
 
 
-def make_state(answer: str, retrieved_docs: list) -> dict:  # type: ignore
+def make_state(answer: str, retrieved_docs: list, query: str = "What is RAG?") -> dict:  # type: ignore
     return {
+        "query": query,
         "answer": answer,
         "retrieved_docs": retrieved_docs,
     }
@@ -227,3 +228,47 @@ def test_empty_answer_does_not_raise(mock_grade_answer):
     assert result["execution_trace"][0]["status"] == "success"
     assert result["execution_trace"][0]["key_output"]["claim_count"] == 0
     mock_grade_answer.assert_not_called()
+
+
+@patch("app.nodes.grading._grade_answer")
+def test_unjustified_abstention_is_capped(mock_grade_answer):
+    mock_grade_answer.return_value = grading.GradingResult(
+        score=1.0,
+        verdict="grounded",
+        explanation="The abstention sentence is supported by the documents.",
+        claim_count=1,
+    )
+
+    result = grade_hallucination(
+        make_state(
+            "I cannot find sufficient information in the provided documents.",
+            [
+                make_document(
+                    "Vision Transformer (ViT) applies the transformer architecture to image patches."
+                )
+            ],
+            query="What is vision transformer?",
+        )
+    )
+
+    assert result["hallucination_score"] == 0.2
+
+
+@patch("app.nodes.grading._grade_answer")
+def test_justified_abstention_is_capped_less_aggressively(mock_grade_answer):
+    mock_grade_answer.return_value = grading.GradingResult(
+        score=1.0,
+        verdict="grounded",
+        explanation="The abstention sentence is supported by the documents.",
+        claim_count=1,
+    )
+
+    result = grade_hallucination(
+        make_state(
+            "I cannot find sufficient information in the provided documents.",
+            [make_document("Retrieval-Augmented Generation combines retrieval with generation.")],
+            query="What is the GDP of Mars?",
+        )
+    )
+
+    assert result["hallucination_score"] == 0.5

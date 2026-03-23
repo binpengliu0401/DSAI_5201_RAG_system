@@ -9,8 +9,7 @@ from pydantic import BaseModel, Field
 from app.graph.state import GraphState
 from app.services.llm_service import get_llm
 from app.utils.tracer import build_trace_entry
-from config.logging import get_logger
-
+from config.logging import get_logger, log_stage_event
 
 logger = get_logger(__name__)
 
@@ -20,6 +19,54 @@ CLAIM_SCORE_MAP: dict[ClaimLabel, float] = {
     "supported": 1.0,
     "partial": 0.5,
     "unsupported": 0.0,
+}
+
+ANSWER_TYPE = Literal["substantive", "abstention", "off_topic"]
+ABSTENTION_PHRASES = (
+    "i cannot find sufficient information",
+    "i cannot find enough information",
+    "i do not have enough information",
+    "the provided documents do not contain enough information",
+    "the context does not contain enough information",
+    "there is insufficient information",
+    "not enough information in the provided documents",
+    "cannot answer based on the provided documents",
+    "cannot be determined from the provided documents",
+)
+OFF_TOPIC_META_PHRASES = (
+    "as an ai language model",
+    "i cannot browse the internet",
+    "i do not have browsing capability",
+    "i don't have browsing capability",
+    "i cannot access external websites",
+)
+STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "by",
+    "do",
+    "for",
+    "from",
+    "how",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "that",
+    "the",
+    "their",
+    "this",
+    "to",
+    "what",
+    "why",
+    "with",
 }
 
 
@@ -73,6 +120,63 @@ def _format_retrieved_docs(docs: list[Document]) -> str:
         content = str(getattr(doc, "page_content", "")).strip()
         formatted_docs.append(f"[DOC {index}] source={source}\n{content}")
     return "\n\n".join(formatted_docs)
+
+
+def _content_terms(text: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", text.lower())
+        if len(token) >= 3 and token not in STOPWORDS
+    }
+
+
+def _is_abstention_answer(answer: str) -> bool:
+    normalized = answer.lower()
+    return any(phrase in normalized for phrase in ABSTENTION_PHRASES)
+
+
+def _is_off_topic_answer(answer: str) -> bool:
+    normalized = answer.lower()
+    return any(phrase in normalized for phrase in OFF_TOPIC_META_PHRASES)
+
+
+def _query_support_in_docs(query: str, retrieved_docs: list[Document]) -> float:
+    query_terms = _content_terms(query)
+    if not query_terms:
+        return 0.0
+
+    docs_text = "\n".join(
+        str(getattr(doc, "page_content", "")).lower() for doc in retrieved_docs
+    )
+    matched_terms = sum(1 for term in query_terms if term in docs_text)
+    return matched_terms / len(query_terms)
+
+
+def _classify_answer(answer: str) -> ANSWER_TYPE:
+    if _is_abstention_answer(answer):
+        return "abstention"
+    if _is_off_topic_answer(answer):
+        return "off_topic"
+    return "substantive"
+
+
+def _is_abstention_justified(query: str, retrieved_docs: list[Document]) -> bool:
+    return _query_support_in_docs(query, retrieved_docs) < 0.5
+
+
+def _apply_score_adjustment(
+    *,
+    grounding_score: float,
+    answer_type: ANSWER_TYPE,
+    abstention_justified: bool | None,
+) -> tuple[float, str]:
+    if answer_type == "abstention":
+        if abstention_justified:
+            return min(grounding_score, 0.5), "justified_abstention"
+        return min(grounding_score, 0.2), "unjustified_abstention"
+    if answer_type == "off_topic":
+        return min(grounding_score, 0.2), "off_topic"
+    return grounding_score, "none"
 
 
 def _is_meaningful_claim(text: str) -> bool:
@@ -345,6 +449,7 @@ def grade_hallucination(state: GraphState) -> dict:
     Evaluates whether the generated answer is supported by retrieved docs.
     """
     start = time.time()
+    query = str(state.get("query", "") or "")
     answer = str(state.get("answer", "") or "")
     retrieved_docs = state.get("retrieved_docs", []) or []
 
@@ -363,6 +468,11 @@ def grade_hallucination(state: GraphState) -> dict:
                 explanation="Empty answer cannot be grounded in retrieved documents.",
                 claim_count=0,
             )
+            answer_type: ANSWER_TYPE = "substantive"
+            abstention_justified: bool | None = None
+            grounding_score = 0.0
+            final_score = 0.0
+            adjustment_reason = "empty_answer"
         elif not retrieved_docs:
             logger.info(
                 "Skipping grading LLM because no retrieved documents are available"
@@ -373,13 +483,48 @@ def grade_hallucination(state: GraphState) -> dict:
                 explanation="No retrieved documents were available for grounding.",
                 claim_count=max(1, len(_split_into_claims(answer))),
             )
+            answer_type = _classify_answer(answer)
+            abstention_justified = None
+            grounding_score = 0.0
+            final_score = 0.0
+            adjustment_reason = "no_documents"
         else:
             result = _normalize_result(_grade_answer(answer, retrieved_docs))
+            grounding_score = _compute_score(result.score)
+            answer_type = _classify_answer(answer)
+            abstention_justified = (
+                _is_abstention_justified(query, retrieved_docs)
+                if answer_type == "abstention"
+                else None
+            )
+            final_score, adjustment_reason = _apply_score_adjustment(
+                grounding_score=grounding_score,
+                answer_type=answer_type,
+                abstention_justified=abstention_justified,
+            )
 
-        score = _compute_score(result.score)
+        score = final_score
+        supported_claim_count = len(result.supported_claims)
+        partial_claim_count = len(result.partial_claims)
         unsupported_claim_count = len(result.unsupported_claims)
         claim_count = result.claim_count
         latency = round((time.time() - start) * 1000, 2)
+
+        log_stage_event(
+            "grading",
+            "score_adjustment",
+            {
+                "grounding_score": grounding_score,
+                "final_score": score,
+                "answer_type": answer_type,
+                "abstention_justified": abstention_justified,
+                "claims_count": claim_count,
+                "supported": supported_claim_count,
+                "partial": partial_claim_count,
+                "unsupported": unsupported_claim_count,
+                "adjustment_reason": adjustment_reason,
+            },
+        )
 
         logger.info(
             "Grading completed score=%.2f verdict=%s unsupported_claims=%d claim_count=%d doc_count=%d explanation=%s",

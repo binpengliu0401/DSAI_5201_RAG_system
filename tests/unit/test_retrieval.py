@@ -128,5 +128,7 @@ def test_retrieval_node_contract():
     assert len(result["execution_trace"]) == 1
     trace = result["execution_trace"][0]
     assert trace["node"] == "retrieval"
-    assert "latency" in trace
-    assert "docs_retrieved" in trace
+    assert trace["status"] == "success"
+    assert "latency_ms" in trace
+    assert "summary" in trace
+    assert trace["key_output"]["docs_retrieved"] == 1

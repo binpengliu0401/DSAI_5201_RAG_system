@@ -3,7 +3,7 @@
 
 import pytest
 from unittest.mock import patch, MagicMock
-from app.main import run_workflow
+from main import run_workflow
 
 
 # Mock helper 
