@@ -1,64 +1,69 @@
-import { CheckCircle2, Loader2, RefreshCw, FileSearch, MessageSquare, ShieldCheck } from "lucide-react";
+import { CheckCircle2, FileSearch, Loader2, MessageSquare, RefreshCw, ShieldCheck } from "lucide-react";
 
 interface LoadingStepsProps {
   currentStep: 'rewriting' | 'retrieval' | 'generation' | 'grading' | 'complete';
 }
 
 const steps = [
-  { id: 'rewriting', label: 'Query Rewrite', icon: RefreshCw },
-  { id: 'retrieval', label: 'Retrieval', icon: FileSearch },
-  { id: 'generation', label: 'Generation', icon: MessageSquare },
-  { id: 'grading', label: 'Hallucination Detection', icon: ShieldCheck },
-];
+  { id: 'rewriting', label: 'Rewrite', icon: RefreshCw },
+  { id: 'retrieval', label: 'Retrieve', icon: FileSearch },
+  { id: 'generation', label: 'Generate', icon: MessageSquare },
+  { id: 'grading', label: 'Confidence', icon: ShieldCheck },
+] as const;
 
 export function LoadingSteps({ currentStep }: LoadingStepsProps) {
-  const currentIndex = steps.findIndex(s => s.id === currentStep);
+  const currentIndex = steps.findIndex((step) => step.id === currentStep);
 
   return (
-    <div className="relative space-y-0">
-      {/* Vertical timeline line */}
-      <div className="absolute left-[19px] top-8 bottom-8 w-0.5 bg-gray-800" />
-      
-      {steps.map((step, index) => {
-        const isComplete = currentStep === 'complete' || index < currentIndex;
-        const isCurrent = index === currentIndex;
-        const Icon = step.icon;
+    <div className="rounded-2xl border border-gray-800 bg-gray-900/40 px-4 py-4 backdrop-blur-sm">
+      <div className="flex items-center gap-3 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+        {steps.map((step, index) => {
+          const isComplete = currentStep === 'complete' || index < currentIndex;
+          const isCurrent = index === currentIndex;
+          const Icon = step.icon;
 
-        return (
-          <div key={step.id} className="flex items-center gap-4 py-3 relative">
-            {/* Step indicator */}
-            <div className="relative z-10">
-              {isComplete ? (
-                <div className="size-10 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center">
-                  <CheckCircle2 className="size-5 text-green-400" />
+          return (
+            <div key={step.id} className="flex items-center gap-3 min-w-fit">
+              <div className="flex items-center gap-3 rounded-full border border-gray-800 bg-gray-950/60 px-4 py-2">
+                <div className={`flex size-8 items-center justify-center rounded-full border ${
+                  isComplete
+                    ? 'border-green-500 bg-green-500/20 text-green-400'
+                    : isCurrent
+                    ? 'border-blue-500 bg-blue-500/20 text-blue-400'
+                    : 'border-gray-700 bg-gray-800/60 text-gray-500'
+                }`}>
+                  {isComplete ? (
+                    <CheckCircle2 className="size-4" />
+                  ) : isCurrent ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Icon className="size-4" />
+                  )}
                 </div>
-              ) : isCurrent ? (
-                <div className="size-10 rounded-full bg-blue-500/20 border-2 border-blue-500 flex items-center justify-center animate-pulse shadow-lg shadow-blue-500/50">
-                  <Loader2 className="size-5 text-blue-400 animate-spin" />
+                <div className="flex flex-col">
+                  <span className={`text-sm font-medium ${
+                    isComplete ? 'text-green-300' :
+                    isCurrent ? 'text-blue-300' :
+                    'text-gray-400'
+                  }`}>
+                    {step.label}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {isComplete ? 'Done' : isCurrent ? 'In progress' : 'Pending'}
+                  </span>
                 </div>
-              ) : (
-                <div className="size-10 rounded-full bg-gray-800/50 border-2 border-gray-700 flex items-center justify-center">
-                  <Icon className="size-5 text-gray-600" />
-                </div>
+              </div>
+              {index < steps.length - 1 && (
+                <div className={`h-px w-8 ${
+                  currentStep === 'complete' || index < currentIndex
+                    ? 'bg-green-500/50'
+                    : 'bg-gray-800'
+                }`} />
               )}
             </div>
-            
-            {/* Step label */}
-            <div className="flex-1">
-              <span className={`text-sm font-medium transition-colors ${
-                isComplete ? 'text-green-400' :
-                isCurrent ? 'text-blue-400' :
-                'text-gray-500'
-              }`}>
-                {step.label}
-              </span>
-              {isCurrent && (
-                <div className="text-xs text-gray-500 mt-0.5">Processing...</div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

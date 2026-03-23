@@ -1,76 +1,70 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
+import { MarkdownAnswer } from "./markdown-answer";
+import { appConfig } from "../lib/app-config";
 
 interface TypewriterTextProps {
   text: string;
-  speed?: number;
-  onComplete?: () => void;
   isActive?: boolean;
+  onProgress?: (displayedLength: number) => void;
+  onDisplayComplete?: () => void;
 }
 
-export function TypewriterText({ text, speed = 30, onComplete, isActive = true }: TypewriterTextProps) {
-  const [displayedText, setDisplayedText] = useState('');
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [showCursor, setShowCursor] = useState(true);
+export function TypewriterText({
+  text,
+  isActive = true,
+  onProgress,
+  onDisplayComplete,
+}: TypewriterTextProps) {
+  const [displayedText, setDisplayedText] = useState(text);
+  const charsPerTick = Math.max(1, appConfig.typewriterCharsPerTick);
+  const intervalMs = Math.max(16, appConfig.typewriterIntervalMs);
 
   useEffect(() => {
     if (!isActive) {
       setDisplayedText(text);
-      setCurrentIndex(text.length);
       return;
     }
 
-    if (text.length === 0) {
-      setDisplayedText('');
-      setCurrentIndex(0);
-      return;
-    }
-
-    if (currentIndex > text.length) {
-      setDisplayedText(text);
-      setCurrentIndex(text.length);
-    }
-  }, [text, isActive, currentIndex]);
+    setDisplayedText((current) => {
+      if (text.startsWith(current)) {
+        return current;
+      }
+      return text;
+    });
+  }, [text, isActive]);
 
   useEffect(() => {
-    if (!isActive) {
-      setDisplayedText(text);
-      setCurrentIndex(text.length);
+    onProgress?.(displayedText.length);
+  }, [displayedText, onProgress]);
+
+  useEffect(() => {
+    if (displayedText.length === text.length && text.length > 0) {
+      onDisplayComplete?.();
+    }
+  }, [displayedText.length, onDisplayComplete, text.length]);
+
+  useEffect(() => {
+    if (displayedText.length >= text.length) {
       return;
     }
 
-    if (currentIndex < text.length) {
-      const timeout = setTimeout(() => {
-        setDisplayedText(text.slice(0, currentIndex + 1));
-        setCurrentIndex(currentIndex + 1);
-      }, speed);
+    const timeout = window.setTimeout(() => {
+      setDisplayedText(text.slice(0, displayedText.length + charsPerTick));
+    }, intervalMs);
 
-      return () => clearTimeout(timeout);
-    } else if (currentIndex === text.length && onComplete) {
-      onComplete();
-    }
-  }, [currentIndex, text, speed, onComplete, isActive]);
-
-  // Cursor blink effect
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setShowCursor(prev => !prev);
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const isComplete = currentIndex >= text.length;
+    return () => window.clearTimeout(timeout);
+  }, [charsPerTick, displayedText, intervalMs, isActive, text]);
 
   return (
-    <span className="relative">
-      {displayedText}
-      {isActive && (
-        <span 
-          className={`inline-block w-0.5 h-5 ml-0.5 bg-blue-400 align-middle transition-opacity duration-100 ${
-            isComplete ? 'opacity-30' : (showCursor ? 'opacity-100' : 'opacity-0')
-          }`}
-        />
+    <div className="relative">
+      {isActive ? (
+        <div className="whitespace-pre-wrap break-words text-gray-100">{displayedText}</div>
+      ) : (
+        <MarkdownAnswer markdown={text} />
       )}
-    </span>
+      {isActive && (
+        <span className="inline-block w-0.5 h-5 ml-0.5 bg-blue-400 align-middle animate-pulse" />
+      )}
+    </div>
   );
 }

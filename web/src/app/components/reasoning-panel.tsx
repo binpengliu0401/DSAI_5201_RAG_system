@@ -1,9 +1,10 @@
+import { memo } from "react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { FileText, RefreshCw, FileSearch, MessageSquare, ShieldCheck, PlugZap } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { ChevronDown, CheckCircle2 } from "lucide-react";
-import type { ConnectionStatus, ProcessingStep, SessionSnapshot, TransportMode } from "../types/rag";
+import type { AttemptSnapshot, ConnectionStatus, SessionSnapshot, TransportMode } from "../types/rag";
 
 interface ReasoningPanelProps {
   snapshot: SessionSnapshot;
@@ -11,17 +12,17 @@ interface ReasoningPanelProps {
   transportMode: TransportMode;
 }
 
-export function ReasoningPanel({
+export const ReasoningPanel = memo(function ReasoningPanel({
   snapshot,
   connectionStatus,
   transportMode,
 }: ReasoningPanelProps) {
+  const currentAttempt = snapshot.attempts.find((attempt) => attempt.attempt === snapshot.currentAttempt)
+    ?? snapshot.attempts[snapshot.attempts.length - 1];
+
   if (
     !snapshot.query &&
-    !snapshot.rewrittenQuery &&
-    snapshot.retrievedDocs.length === 0 &&
-    !snapshot.answer &&
-    !snapshot.hallucinationResult
+    snapshot.attempts.length === 0
   ) {
     return (
       <Card className="p-6 bg-gray-900/50 border-gray-800 backdrop-blur-sm h-full">
@@ -48,11 +49,11 @@ export function ReasoningPanel({
       </div>
 
       <div className="space-y-8 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
-        <TraceBody snapshot={snapshot} />
+        <TraceBody snapshot={snapshot} currentAttempt={currentAttempt} />
       </div>
     </Card>
   );
-}
+}, areReasoningPanelPropsEqual);
 
 function ConnectionBadge({
   connectionStatus,
@@ -87,8 +88,18 @@ function ConnectionBadge({
   );
 }
 
-function TraceBody({ snapshot }: { snapshot: SessionSnapshot }) {
+function TraceBody({
+  snapshot,
+  currentAttempt,
+}: {
+  snapshot: SessionSnapshot;
+  currentAttempt?: AttemptSnapshot;
+}) {
   const currentStep = snapshot.currentStep;
+  const previousAttempts = currentAttempt
+    ? snapshot.attempts.filter((attempt) => attempt.attempt !== currentAttempt.attempt)
+    : snapshot.attempts;
+
   const getStepStatus = (step: string) => {
     if (!currentStep) return 'pending';
     const steps = ['rewriting', 'retrieval', 'generation', 'grading', 'complete'];
@@ -102,6 +113,76 @@ function TraceBody({ snapshot }: { snapshot: SessionSnapshot }) {
 
   return (
     <div className="space-y-6 relative">
+      {snapshot.attempts.length > 1 && (
+        <div className="rounded-xl border border-gray-800 bg-gray-950/50 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-medium text-gray-200">Retry History</div>
+            <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/30">
+              {snapshot.attempts.length} attempts
+            </Badge>
+          </div>
+          <div className="space-y-2">
+            {previousAttempts.map((attempt) => (
+              <Collapsible key={attempt.attempt}>
+                <CollapsibleTrigger className="w-full">
+                  <div className="flex items-start justify-between gap-3 rounded-lg border border-gray-800 bg-gray-900/60 p-3 text-left hover:border-gray-700 transition-colors">
+                    <div className="space-y-1 min-w-0">
+                      <div className="text-sm text-gray-200">Attempt {attempt.attempt}</div>
+                      <div className="text-xs text-gray-500 truncate">
+                        {attempt.rewrittenQuery || 'Rewrite pending'}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {attempt.hallucinationResult && (
+                        <Badge variant="outline" className="text-xs bg-gray-800 text-gray-300 border-gray-700">
+                          Score {attempt.hallucinationResult.score.toFixed(2)}
+                        </Badge>
+                      )}
+                      <ChevronDown className="size-4 text-gray-500 group-data-[state=open]:rotate-180 transition-transform" />
+                    </div>
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="mt-2 rounded-lg border border-gray-800 bg-gray-950/50 p-3 space-y-3">
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">Rewrite</div>
+                      <div className="text-sm text-gray-300">{attempt.rewrittenQuery || 'No rewrite captured.'}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">Answer</div>
+                      <div className="text-sm text-gray-300 whitespace-pre-wrap">
+                        {attempt.answer || 'No answer captured.'}
+                      </div>
+                    </div>
+                    {attempt.hallucinationResult && (
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">Grounding</div>
+                        <div className="text-sm text-gray-300">
+                          {attempt.hallucinationResult.score.toFixed(2)}: {attempt.hallucinationResult.explanation}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!currentAttempt ? (
+        <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-4 text-sm text-gray-500">
+          Waiting for the first attempt to start...
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-medium text-gray-200">Active Attempt {currentAttempt.attempt}</div>
+            <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/30">
+              Current pass
+            </Badge>
+          </div>
+
       {/* Timeline line */}
       <div className="absolute left-[19px] top-6 bottom-0 w-0.5 bg-gray-800" />
 
@@ -125,7 +206,7 @@ function TraceBody({ snapshot }: { snapshot: SessionSnapshot }) {
             <div className="text-sm text-gray-400 font-medium">Query Rewrite</div>
             {getStepStatus('rewriting') !== 'pending' && (
               <div className="bg-gray-800/50 rounded-lg p-3 text-sm text-gray-300 border border-gray-700">
-                "{snapshot.rewrittenQuery || 'Waiting for backend rewrite...'}"
+                "{currentAttempt.rewrittenQuery || 'Waiting for backend rewrite...'}"
               </div>
             )}
           </div>
@@ -152,12 +233,12 @@ function TraceBody({ snapshot }: { snapshot: SessionSnapshot }) {
             <div className="text-sm text-gray-400 font-medium">Retrieved Documents</div>
             {getStepStatus('retrieval') !== 'pending' && (
               <div className="space-y-2">
-                {snapshot.retrievedDocs.length === 0 && (
+                {currentAttempt.retrievedDocs.length === 0 && (
                   <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700 text-sm text-gray-500">
                     Waiting for retrieved context...
                   </div>
                 )}
-                {snapshot.retrievedDocs.map((doc) => (
+                {currentAttempt.retrievedDocs.map((doc) => (
                   <Collapsible key={doc.id}>
                     <CollapsibleTrigger className="w-full">
                       <div className="flex items-start gap-3 bg-gray-800/50 rounded-lg p-3 border border-gray-700 hover:border-gray-600 transition-colors cursor-pointer group">
@@ -224,9 +305,9 @@ function TraceBody({ snapshot }: { snapshot: SessionSnapshot }) {
         <div className="flex items-start gap-4">
           <div className={`size-10 rounded-full flex items-center justify-center z-10 ${
             getStepStatus('grading') === 'complete'
-              ? (snapshot.hallucinationResult?.score ?? 0) >= 0.7
+              ? (currentAttempt.hallucinationResult?.score ?? 0) >= 0.7
                 ? 'bg-green-500/20 border-2 border-green-500'
-                : (snapshot.hallucinationResult?.score ?? 0) >= 0.4
+                : (currentAttempt.hallucinationResult?.score ?? 0) >= 0.4
                 ? 'bg-yellow-500/20 border-2 border-yellow-500'
                 : 'bg-red-500/20 border-2 border-red-500'
               : getStepStatus('grading') === 'active'
@@ -235,8 +316,8 @@ function TraceBody({ snapshot }: { snapshot: SessionSnapshot }) {
           }`}>
             <ShieldCheck className={`size-5 ${
               getStepStatus('grading') === 'complete'
-                ? (snapshot.hallucinationResult?.score ?? 0) >= 0.7 ? 'text-green-400' :
-                  (snapshot.hallucinationResult?.score ?? 0) >= 0.4 ? 'text-yellow-400' :
+                ? (currentAttempt.hallucinationResult?.score ?? 0) >= 0.7 ? 'text-green-400' :
+                  (currentAttempt.hallucinationResult?.score ?? 0) >= 0.4 ? 'text-yellow-400' :
                   'text-red-400'
                 : getStepStatus('grading') === 'active' ? 'text-blue-400' :
                 'text-gray-600'
@@ -247,33 +328,33 @@ function TraceBody({ snapshot }: { snapshot: SessionSnapshot }) {
             
             {getStepStatus('grading') !== 'pending' && (
               <div className="space-y-3">
-                {!snapshot.hallucinationResult && (
+                {!currentAttempt.hallucinationResult && (
                   <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700 text-sm text-gray-500">
                     Waiting for grounding assessment...
                   </div>
                 )}
-                {snapshot.hallucinationResult && (
+                {currentAttempt.hallucinationResult && (
                   <>
                 <div className="flex items-center justify-between bg-gray-800/50 rounded-lg p-3 border border-gray-700">
-                  <span className="text-sm text-gray-400">Grounding Score</span>
+                  <span className="text-sm text-gray-400">Answer Confidence</span>
                   <span className={`text-sm font-medium ${
-                    snapshot.hallucinationResult.score >= 0.7 ? 'text-green-400' :
-                    snapshot.hallucinationResult.score >= 0.4 ? 'text-yellow-400' :
+                    currentAttempt.hallucinationResult.score >= 0.7 ? 'text-green-400' :
+                    currentAttempt.hallucinationResult.score >= 0.4 ? 'text-yellow-400' :
                     'text-red-400'
                   }`}>
-                    {snapshot.hallucinationResult.score.toFixed(2)}
+                    {currentAttempt.hallucinationResult.score.toFixed(2)}
                   </span>
                 </div>
                 
                 <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700">
-                  <p className="text-sm text-gray-300">{snapshot.hallucinationResult.explanation}</p>
+                  <p className="text-sm text-gray-300">{currentAttempt.hallucinationResult.explanation}</p>
                 </div>
 
-                {snapshot.hallucinationResult.unsupportedClaims && snapshot.hallucinationResult.unsupportedClaims.length > 0 && (
+                {currentAttempt.hallucinationResult.unsupportedClaims && currentAttempt.hallucinationResult.unsupportedClaims.length > 0 && (
                   <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/30">
                     <p className="text-xs text-red-400 font-medium mb-2">Unsupported Claims:</p>
                     <ul className="list-disc list-inside space-y-1">
-                      {snapshot.hallucinationResult.unsupportedClaims.map((claim, idx) => (
+                      {currentAttempt.hallucinationResult.unsupportedClaims.map((claim, idx) => (
                         <li key={idx} className="text-sm text-red-300">{claim}</li>
                       ))}
                     </ul>
@@ -286,6 +367,61 @@ function TraceBody({ snapshot }: { snapshot: SessionSnapshot }) {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
+}
+
+function areReasoningPanelPropsEqual(
+  previous: ReasoningPanelProps,
+  next: ReasoningPanelProps,
+) {
+  if (
+    previous.connectionStatus !== next.connectionStatus ||
+    previous.transportMode !== next.transportMode
+  ) {
+    return false;
+  }
+
+  const previousSnapshot = previous.snapshot;
+  const nextSnapshot = next.snapshot;
+  if (
+    previousSnapshot.query !== nextSnapshot.query ||
+    previousSnapshot.runStatus !== nextSnapshot.runStatus ||
+    previousSnapshot.currentStep !== nextSnapshot.currentStep ||
+    previousSnapshot.currentAttempt !== nextSnapshot.currentAttempt ||
+    previousSnapshot.attempts.length !== nextSnapshot.attempts.length
+  ) {
+    return false;
+  }
+
+  return previousSnapshot.attempts.every((attempt, index) => {
+    const nextAttempt = nextSnapshot.attempts[index];
+    if (!nextAttempt) {
+      return false;
+    }
+
+    // Ignore active-attempt answer deltas to keep the trace panel from rerendering on every chunk.
+    const ignoreAnswerChange = attempt.attempt === nextSnapshot.currentAttempt;
+
+    return (
+      attempt.attempt === nextAttempt.attempt &&
+      attempt.rewrittenQuery === nextAttempt.rewrittenQuery &&
+      attempt.answerStatus === nextAttempt.answerStatus &&
+      (ignoreAnswerChange || attempt.answer === nextAttempt.answer) &&
+      attempt.hallucinationResult?.score === nextAttempt.hallucinationResult?.score &&
+      attempt.hallucinationResult?.explanation === nextAttempt.hallucinationResult?.explanation &&
+      attempt.retrievedDocs.length === nextAttempt.retrievedDocs.length &&
+      attempt.retrievedDocs.every((doc, docIndex) => {
+        const nextDoc = nextAttempt.retrievedDocs[docIndex];
+        return !!nextDoc &&
+          doc.id === nextDoc.id &&
+          doc.title === nextDoc.title &&
+          doc.snippet === nextDoc.snippet &&
+          doc.score === nextDoc.score &&
+          doc.relevant === nextDoc.relevant;
+      })
+    );
+  });
 }

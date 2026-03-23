@@ -30,13 +30,13 @@ export function QueryInput({ query, onQueryChange, onSubmit, isLoading }: QueryI
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="flex-1 min-h-[56px] max-h-[56px] resize-none bg-gray-900/50 border-gray-700 text-gray-100 placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+          className="flex-1 min-h-[52px] max-h-[84px] resize-none bg-gray-900/50 border-gray-700 text-gray-100 placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 text-sm"
           disabled={isLoading}
         />
         <Button 
           onClick={onSubmit} 
           disabled={!query.trim() || isLoading}
-          className="h-[56px] px-8 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/30 hover:border-blue-500/50 backdrop-blur-sm shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20 transition-all duration-200 disabled:opacity-30 disabled:shadow-none flex-shrink-0"
+          className="h-[52px] px-7 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/30 hover:border-blue-500/50 backdrop-blur-sm shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20 transition-all duration-200 disabled:opacity-30 disabled:shadow-none flex-shrink-0"
         >
           {isLoading ? (
             <>

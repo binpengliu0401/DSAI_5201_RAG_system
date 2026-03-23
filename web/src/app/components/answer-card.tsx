@@ -2,7 +2,7 @@ import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
 import { TypewriterText } from "./typewriter-text";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Progress } from "./ui/progress";
 
 interface AnswerCardProps {
@@ -12,12 +12,76 @@ interface AnswerCardProps {
   isComplete?: boolean;
 }
 
-export function AnswerCard({ answer, hallucinationScore, isGenerating = false, isComplete = false }: AnswerCardProps) {
-  const [typewriterComplete, setTypewriterComplete] = useState(false);
+export function AnswerCard({
+  answer,
+  hallucinationScore,
+  isGenerating = false,
+  isComplete = false,
+}: AnswerCardProps) {
+  const [displayComplete, setDisplayComplete] = useState(false);
+  const [displayedLength, setDisplayedLength] = useState(0);
+  const bodyScrollRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const shouldFollowTailRef = useRef(true);
 
   useEffect(() => {
-    setTypewriterComplete(isComplete || (!isGenerating && answer.length > 0));
-  }, [answer, isComplete, isGenerating]);
+    if (answer.length === 0) {
+      setDisplayComplete(false);
+      return;
+    }
+
+    if (displayedLength < answer.length) {
+      setDisplayComplete(false);
+      return;
+    }
+
+    if (!isGenerating) {
+      setDisplayComplete(true);
+    }
+  }, [answer.length, displayedLength, isGenerating]);
+
+  useEffect(() => {
+    if (answer.length === 0) {
+      setDisplayedLength(0);
+      setDisplayComplete(false);
+    }
+  }, [answer.length]);
+
+  useEffect(() => {
+    if (isGenerating) {
+      setDisplayComplete(false);
+    }
+  }, [isGenerating]);
+
+  useEffect(() => {
+    const container = bodyScrollRef.current;
+    if (!container) {
+      return;
+    }
+
+    const updateFollowState = () => {
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      shouldFollowTailRef.current = distanceFromBottom < 120;
+    };
+
+    updateFollowState();
+    container.addEventListener('scroll', updateFollowState, { passive: true });
+    return () => container.removeEventListener('scroll', updateFollowState);
+  }, []);
+
+  useEffect(() => {
+    if (!isGenerating || !bodyScrollRef.current || !bottomRef.current) {
+      return;
+    }
+
+    if (shouldFollowTailRef.current) {
+      const container = bodyScrollRef.current;
+      window.requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+  }, [displayedLength, isGenerating]);
 
   const getScoreColor = (score: number) => {
     if (score >= 0.7) return 'green';
@@ -70,19 +134,35 @@ export function AnswerCard({ answer, hallucinationScore, isGenerating = false, i
         </div>
       )}
       
-      <div className="text-gray-100 leading-relaxed text-base min-h-[80px]">
-        <TypewriterText 
-          text={answer} 
-          speed={30}
-          onComplete={() => setTypewriterComplete(true)}
-          isActive={isGenerating}
-        />
+      <div
+        ref={bodyScrollRef}
+        className="text-gray-100 leading-relaxed text-base min-h-[120px] max-h-[44vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
+      >
+        {answer.length > 0 ? (
+          <>
+            <TypewriterText 
+              text={answer} 
+              isActive={isGenerating || !displayComplete}
+              onProgress={setDisplayedLength}
+              onDisplayComplete={() => {
+                if (!displayComplete) {
+                  setDisplayComplete(true);
+                }
+              }}
+            />
+            <div ref={bottomRef} />
+          </>
+        ) : (
+          <div className="text-gray-500">
+            {isGenerating ? 'Waiting for the first answer tokens...' : 'Ask a question to generate an answer.'}
+          </div>
+        )}
       </div>
 
-      {hallucinationScore !== undefined && typewriterComplete && (
+      {hallucinationScore !== undefined && displayComplete && (
         <div className="space-y-3 pt-2 border-t border-gray-800 animate-in fade-in duration-500">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-400">Grounding Score</span>
+            <span className="text-sm text-gray-400">Answer Confidence</span>
             <Badge 
               variant="outline" 
               className={`flex items-center gap-1.5 ${scoreColorClasses[scoreColor]}`}

@@ -23,9 +23,18 @@ export function createWebSocketTransport({
 }: CreateWebSocketTransportOptions): RAGTransport {
   let socket: WebSocket | null = null;
   let callbacks: TransportCallbacks | null = null;
+  let reconnectTimer: number | null = null;
+  let manuallyDisconnected = false;
 
   const sendConnectionStatus = (status: Parameters<TransportCallbacks['onConnectionStatusChange']>[0]) => {
     callbacks?.onConnectionStatusChange(status);
+  };
+
+  const clearReconnectTimer = () => {
+    if (reconnectTimer !== null) {
+      window.clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
   };
 
   const closeSocket = () => {
@@ -41,52 +50,78 @@ export function createWebSocketTransport({
     socket = null;
   };
 
+  const scheduleReconnect = () => {
+    if (manuallyDisconnected || reconnectTimer !== null || !callbacks) {
+      return;
+    }
+
+    sendConnectionStatus('connecting');
+    reconnectTimer = window.setTimeout(() => {
+      reconnectTimer = null;
+      connectSocket();
+    }, 1200);
+  };
+
+  const connectSocket = () => {
+    clearReconnectTimer();
+
+    try {
+      socket = new WebSocket(url);
+    } catch (error) {
+      log('error', 'Failed to create WebSocket connection', { url });
+      sendConnectionStatus('connecting');
+      callbacks?.onTransportError(
+        error instanceof Error ? error.message : 'Waiting for backend warmup.',
+      );
+      scheduleReconnect();
+      return;
+    }
+
+    socket.onopen = () => {
+      log('info', 'WebSocket connected', { url });
+      sendConnectionStatus('connected');
+    };
+
+    socket.onclose = () => {
+      log('warn', 'WebSocket disconnected', { url });
+      if (manuallyDisconnected) {
+        sendConnectionStatus('disconnected');
+        return;
+      }
+      scheduleReconnect();
+    };
+
+    socket.onerror = () => {
+      log('error', 'WebSocket connection error', { url });
+      callbacks?.onTransportError('Waiting for backend warmup.');
+    };
+
+    socket.onmessage = (message) => {
+      try {
+        const payload = JSON.parse(message.data) as unknown;
+        if (!isServerEvent(payload)) {
+          callbacks?.onTransportError('Received an invalid server event.');
+          return;
+        }
+
+        callbacks?.onEvent(payload);
+      } catch (error) {
+        callbacks?.onTransportError(error instanceof Error ? error.message : 'Failed to parse server event.');
+      }
+    };
+  };
+
   return {
     mode: 'websocket',
     connect(nextCallbacks) {
       callbacks = nextCallbacks;
+      manuallyDisconnected = false;
       sendConnectionStatus('connecting');
-
-      try {
-        socket = new WebSocket(url);
-      } catch (error) {
-        log('error', 'Failed to create WebSocket connection', { url });
-        sendConnectionStatus('error');
-        callbacks.onTransportError(error instanceof Error ? error.message : 'Failed to create WebSocket connection.');
-        return;
-      }
-
-      socket.onopen = () => {
-        log('info', 'WebSocket connected', { url });
-        sendConnectionStatus('connected');
-      };
-
-      socket.onclose = () => {
-        log('warn', 'WebSocket disconnected', { url });
-        sendConnectionStatus('disconnected');
-      };
-
-      socket.onerror = () => {
-        log('error', 'WebSocket connection error', { url });
-        sendConnectionStatus('error');
-        callbacks?.onTransportError('WebSocket connection error.');
-      };
-
-      socket.onmessage = (message) => {
-        try {
-          const payload = JSON.parse(message.data) as unknown;
-          if (!isServerEvent(payload)) {
-            callbacks?.onTransportError('Received an invalid server event.');
-            return;
-          }
-
-          callbacks?.onEvent(payload);
-        } catch (error) {
-          callbacks?.onTransportError(error instanceof Error ? error.message : 'Failed to parse server event.');
-        }
-      };
+      connectSocket();
     },
     disconnect() {
+      manuallyDisconnected = true;
+      clearReconnectTimer();
       closeSocket();
       callbacks = null;
     },

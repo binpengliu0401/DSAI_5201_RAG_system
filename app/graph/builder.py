@@ -10,13 +10,28 @@ from app.nodes.retrieval import create_retrieval_node
 from app.nodes.generation import generate_answer
 from app.nodes.grading import grade_hallucination
 from app.utils.constants import MAX_RETRIES
+from config.logging import get_logger
+
+logger = get_logger(__name__)
 
 
-def build_graph():
+def create_retriever() -> RAGRetriever:
     retriever = RAGRetriever(
         parquet_path="data/train-00000-of-00001.parquet", index_dir="data/index"
     )
-    retriever.load()
+    try:
+        retriever.load()
+        logger.info("Retriever index loaded from disk")
+    except FileNotFoundError:
+        logger.warning("Retriever index missing; building index before serving queries")
+        retriever.build()
+        retriever.load()
+        logger.info("Retriever index built and loaded")
+    return retriever
+
+
+def build_graph():
+    retriever = create_retriever()
     retieval_node = create_retrieval_node(retriever)
 
     # Initialize graph with state schema
