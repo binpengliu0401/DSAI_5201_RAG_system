@@ -1,0 +1,529 @@
+[
+  {
+    "id": 1,
+    "category": "high",
+    "question": "What is chain of thought prompting?",
+    "final_score": 1.0,
+    "retry_count": 1,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 41518.27,
+    "node_latencies": {
+      "rewriting": 2879.25,
+      "retrieval": 162.0,
+      "generation": 11410.43,
+      "grading": 27058.86,
+      "router": 0.02
+    },
+    "grading_scores": [
+      0.5625,
+      1.0
+    ]
+  },
+  {
+    "id": 2,
+    "category": "high",
+    "question": "How does RLHF work in large language models?",
+    "final_score": 0.875,
+    "retry_count": 1,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 40416.5,
+    "node_latencies": {
+      "rewriting": 6285.68,
+      "retrieval": 120.34,
+      "generation": 12403.52,
+      "grading": 21599.28,
+      "router": 0.02
+    },
+    "grading_scores": [
+      0.0,
+      0.875
+    ]
+  },
+  {
+    "id": 3,
+    "category": "high",
+    "question": "What is retrieval-augmented generation?",
+    "final_score": 1.0,
+    "retry_count": 0,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 16795.03,
+    "node_latencies": {
+      "rewriting": 1144.2,
+      "retrieval": 57.42,
+      "generation": 5142.31,
+      "grading": 10447.42,
+      "router": 0.01
+    },
+    "grading_scores": [
+      1.0
+    ]
+  },
+  {
+    "id": 4,
+    "category": "high",
+    "question": "How does the attention mechanism work in Transformers?",
+    "final_score": 0.0,
+    "retry_count": 2,
+    "decision": "stop",
+    "success": false,
+    "e2e_latency_ms": 53960.21,
+    "node_latencies": {
+      "rewriting": 2302.46,
+      "retrieval": 126.47,
+      "generation": 16128.150000000001,
+      "grading": 35391.700000000004,
+      "router": 0.03
+    },
+    "grading_scores": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "id": 5,
+    "category": "high",
+    "question": "What is the difference between zero-shot and few-shot prompting?",
+    "final_score": 1.0,
+    "retry_count": 0,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 15252.77,
+    "node_latencies": {
+      "rewriting": 734.63,
+      "retrieval": 33.43,
+      "generation": 5555.6,
+      "grading": 8925.8,
+      "router": 0.01
+    },
+    "grading_scores": [
+      1.0
+    ]
+  },
+  {
+    "id": 6,
+    "category": "high",
+    "question": "What is instruction tuning?",
+    "final_score": 0.75,
+    "retry_count": 0,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 15881.43,
+    "node_latencies": {
+      "rewriting": 737.98,
+      "retrieval": 36.45,
+      "generation": 3884.98,
+      "grading": 11217.38,
+      "router": 0.01
+    },
+    "grading_scores": [
+      0.75
+    ]
+  },
+  {
+    "id": 7,
+    "category": "high",
+    "question": "How do decoder-only language models generate text?",
+    "final_score": 0.75,
+    "retry_count": 2,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 53553.1,
+    "node_latencies": {
+      "rewriting": 3060.55,
+      "retrieval": 129.63,
+      "generation": 16060.16,
+      "grading": 34294.09,
+      "router": 0.03
+    },
+    "grading_scores": [
+      0.0,
+      0.375,
+      0.75
+    ]
+  },
+  {
+    "id": 8,
+    "category": "high",
+    "question": "What is the GSM8K benchmark used for?",
+    "final_score": 0.9375,
+    "retry_count": 0,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 13425.61,
+    "node_latencies": {
+      "rewriting": 896.53,
+      "retrieval": 50.76,
+      "generation": 3565.26,
+      "grading": 8909.4,
+      "router": 0.01
+    },
+    "grading_scores": [
+      0.9375
+    ]
+  },
+  {
+    "id": 9,
+    "category": "medium",
+    "question": "How do LLMs handle mathematical reasoning?",
+    "final_score": 0.8333333333333334,
+    "retry_count": 0,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 16718.84,
+    "node_latencies": {
+      "rewriting": 986.22,
+      "retrieval": 35.71,
+      "generation": 3894.56,
+      "grading": 11798.54,
+      "router": 0.01
+    },
+    "grading_scores": [
+      0.8333333333333334
+    ]
+  },
+  {
+    "id": 10,
+    "category": "medium",
+    "question": "What makes some prompting strategies better than others?",
+    "final_score": 0.875,
+    "retry_count": 0,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 17483.78,
+    "node_latencies": {
+      "rewriting": 794.5,
+      "retrieval": 37.11,
+      "generation": 4623.7,
+      "grading": 12024.99,
+      "router": 0.01
+    },
+    "grading_scores": [
+      0.875
+    ]
+  },
+  {
+    "id": 11,
+    "category": "medium",
+    "question": "How is retrieval used to reduce hallucination?",
+    "final_score": 1.0,
+    "retry_count": 0,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 16166.08,
+    "node_latencies": {
+      "rewriting": 874.94,
+      "retrieval": 39.08,
+      "generation": 4670.36,
+      "grading": 10577.86,
+      "router": 0.0
+    },
+    "grading_scores": [
+      1.0
+    ]
+  },
+  {
+    "id": 12,
+    "category": "medium",
+    "question": "Why do larger models tend to perform better?",
+    "final_score": 0.75,
+    "retry_count": 1,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 31154.72,
+    "node_latencies": {
+      "rewriting": 1810.67,
+      "retrieval": 101.59,
+      "generation": 10709.64,
+      "grading": 18525.42,
+      "router": 0.02
+    },
+    "grading_scores": [
+      0.5625,
+      0.75
+    ]
+  },
+  {
+    "id": 13,
+    "category": "medium",
+    "question": "What role does fine-tuning play after pretraining?",
+    "final_score": 0.9375,
+    "retry_count": 1,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 32764.36,
+    "node_latencies": {
+      "rewriting": 2996.85,
+      "retrieval": 82.75,
+      "generation": 10072.869999999999,
+      "grading": 19605.8,
+      "router": 0.02
+    },
+    "grading_scores": [
+      0.0,
+      0.9375
+    ]
+  },
+  {
+    "id": 14,
+    "category": "medium",
+    "question": "How do models learn to follow human instructions?",
+    "final_score": 0.125,
+    "retry_count": 2,
+    "decision": "stop",
+    "success": false,
+    "e2e_latency_ms": 45040.71,
+    "node_latencies": {
+      "rewriting": 2897.91,
+      "retrieval": 114.66,
+      "generation": 16741.93,
+      "grading": 25276.66,
+      "router": 0.03
+    },
+    "grading_scores": [
+      0.4375,
+      0.4375,
+      0.125
+    ]
+  },
+  {
+    "id": 15,
+    "category": "medium",
+    "question": "What are the limitations of dense retrieval?",
+    "final_score": 0.75,
+    "retry_count": 2,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 46483.82,
+    "node_latencies": {
+      "rewriting": 3401.76,
+      "retrieval": 108.70999999999998,
+      "generation": 16609.17,
+      "grading": 26355.33,
+      "router": 0.03
+    },
+    "grading_scores": [
+      0.0,
+      0.5625,
+      0.75
+    ]
+  },
+  {
+    "id": 16,
+    "category": "medium",
+    "question": "How does self-consistency improve reasoning?",
+    "final_score": 0.875,
+    "retry_count": 0,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 15389.73,
+    "node_latencies": {
+      "rewriting": 714.4,
+      "retrieval": 38.82,
+      "generation": 3622.98,
+      "grading": 11009.99,
+      "router": 0.01
+    },
+    "grading_scores": [
+      0.875
+    ]
+  },
+  {
+    "id": 17,
+    "category": "low",
+    "question": "How do chain of thought and retrieval work together to improve accuracy?",
+    "final_score": 1.0,
+    "retry_count": 0,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 19160.82,
+    "node_latencies": {
+      "rewriting": 829.36,
+      "retrieval": 37.74,
+      "generation": 9091.94,
+      "grading": 9198.24,
+      "router": 0.0
+    },
+    "grading_scores": [
+      1.0
+    ]
+  },
+  {
+    "id": 18,
+    "category": "low",
+    "question": "What are the tradeoffs between model size, training cost, and performance?",
+    "final_score": 0.0,
+    "retry_count": 2,
+    "decision": "stop",
+    "success": false,
+    "e2e_latency_ms": 47989.3,
+    "node_latencies": {
+      "rewriting": 2674.73,
+      "retrieval": 139.24,
+      "generation": 17632.57,
+      "grading": 27534.090000000004,
+      "router": 0.01
+    },
+    "grading_scores": [
+      0.625,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "id": 19,
+    "category": "low",
+    "question": "How do positional encodings affect long-context reasoning?",
+    "final_score": 0.75,
+    "retry_count": 1,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 38308.13,
+    "node_latencies": {
+      "rewriting": 2092.83,
+      "retrieval": 76.31,
+      "generation": 10785.43,
+      "grading": 25346.52,
+      "router": 0.02
+    },
+    "grading_scores": [
+      0.0,
+      0.75
+    ]
+  },
+  {
+    "id": 20,
+    "category": "low",
+    "question": "How do symbolic and neural approaches to math solving compare?",
+    "final_score": 0.5625,
+    "retry_count": 2,
+    "decision": "stop",
+    "success": false,
+    "e2e_latency_ms": 53958.6,
+    "node_latencies": {
+      "rewriting": 2885.71,
+      "retrieval": 103.13,
+      "generation": 17603.04,
+      "grading": 33357.6,
+      "router": 0.03
+    },
+    "grading_scores": [
+      0.625,
+      0.5,
+      0.5625
+    ]
+  },
+  {
+    "id": 21,
+    "category": "noise",
+    "question": "What is the best recipe for making pasta carbonara?",
+    "final_score": 0.0,
+    "retry_count": 2,
+    "decision": "stop",
+    "success": false,
+    "e2e_latency_ms": 47187.55,
+    "node_latencies": {
+      "rewriting": 3020.8999999999996,
+      "retrieval": 106.58,
+      "generation": 20931.79,
+      "grading": 23119.160000000003,
+      "router": 0.02
+    },
+    "grading_scores": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "id": 22,
+    "category": "noise",
+    "question": "What does the fox say about mathematics?",
+    "final_score": 0.0,
+    "retry_count": 2,
+    "decision": "stop",
+    "success": false,
+    "e2e_latency_ms": 45265.77,
+    "node_latencies": {
+      "rewriting": 2743.74,
+      "retrieval": 108.58,
+      "generation": 14178.13,
+      "grading": 28225.489999999998,
+      "router": 0.03
+    },
+    "grading_scores": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "id": 23,
+    "category": "noise",
+    "question": "Who won the FIFA World Cup in 2022?",
+    "final_score": 0.0,
+    "retry_count": 2,
+    "decision": "stop",
+    "success": false,
+    "e2e_latency_ms": 34961.58,
+    "node_latencies": {
+      "rewriting": 3518.08,
+      "retrieval": 114.31,
+      "generation": 9792.43,
+      "grading": 21525.9,
+      "router": 0.03
+    },
+    "grading_scores": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  {
+    "id": 24,
+    "category": "noise",
+    "question": "asdfjkl qwerty transformer?",
+    "final_score": 0.625,
+    "retry_count": 2,
+    "decision": "stop",
+    "success": false,
+    "e2e_latency_ms": 51718.39,
+    "node_latencies": {
+      "rewriting": 2745.44,
+      "retrieval": 119.04,
+      "generation": 17629.27,
+      "grading": 31213.859999999997,
+      "router": 0.03
+    },
+    "grading_scores": [
+      0.25,
+      0.0,
+      0.625
+    ]
+  },
+  {
+    "id": 25,
+    "category": "noise",
+    "question": "How does climate change affect transformer architecture?",
+    "final_score": 0.875,
+    "retry_count": 2,
+    "decision": "output",
+    "success": true,
+    "e2e_latency_ms": 42805.65,
+    "node_latencies": {
+      "rewriting": 2903.83,
+      "retrieval": 118.54,
+      "generation": 11597.84,
+      "grading": 28176.07,
+      "router": 0.03
+    },
+    "grading_scores": [
+      0.125,
+      0.0,
+      0.875
+    ]
+  }
+]
