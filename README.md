@@ -45,7 +45,7 @@ MathMind-RAG/
 │   │   ├── embedder.py           # BAAI/bge-base-en-v1.5 embeddings
 │   │   └── vector_store.py       # FAISS index build / search / save
 │   ├── services/
-│   │   ├── llm_service.py        # Qwen via DashScope (LangChain-compatible)
+│   │   ├── llm_service.py        # OpenRouter/OpenAI-compatible LLM client
 │   │   └── retriever.py          # RAGRetriever — end-to-end retrieval pipeline
 │   └── utils/
 │       ├── constants.py          # Environment variables and defaults
@@ -87,6 +87,9 @@ MathMind-RAG/
 ├── scripts/
 │   ├── setup_data.py             # Auto-download dataset and build FAISS index
 │   └── build_index.py            # Manual FAISS index builder
+│
+├── tools/
+│   └── debug_rag.py              # Manual RAG debugging entrypoint
 │
 ├── data/                         # Not in git
 │   ├── train-00000-of-00001.parquet   # AI/Math paper dataset
@@ -181,12 +184,14 @@ Copy `.env.example` to `.env` — never commit `.env` to git.
 | `LLM_API_KEY` | **Yes** | OpenRouter API key | — |
 | `RAG_ENGINE_MODE` | No | `core` for full pipeline, `fake` for UI testing only | `core` |
 | `RAG_FAISS_INDEX_PATH` | No | Path to FAISS index directory | `./data/faiss_index` |
-| `LLM_MODEL` | No | Default model for all LLM tasks | `qwen-turbo` |
+| `LLM_MODEL` | No | Default model for all LLM tasks | `qwen/qwen-turbo` |
 | `LLM_MODEL_REWRITING` | No | Query rewriting model override | `LLM_MODEL` |
 | `LLM_MODEL_GENERATION` | No | Answer generation model override | `LLM_MODEL` |
 | `LLM_MODEL_GRADING` | No | Hallucination grading model override | `LLM_MODEL` |
 | `LLM_MODEL_GRADING_ESCALATION` | No | Future stronger-model grading fallback | `LLM_MODEL_GRADING` |
-| `LLM_BASE_URL` | No | OpenAI-compatible gateway endpoint | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| `LLM_BASE_URL` | No | OpenAI-compatible gateway endpoint | `https://openrouter.ai/api/v1` |
+| `LOG_LEVEL` | No | App log level: `INFO`, `DEBUG`, or `TRACE` | `INFO` |
+| `LOG_TRANSPORT_DEBUG` | No | Enable raw OpenAI/httpcore/httpx debug logs | `false` |
 | `BACKEND_PORT` | No | Backend server port | `8000` |
 | `FRONTEND_PORT` | No | Frontend dev server port | `5173` |
 | `ALLOWED_ORIGINS` | No | CORS allowed origins | `http://127.0.0.1:5173,http://localhost:5173` |
@@ -231,6 +236,50 @@ Run the full pipeline from the command line without the frontend:
 
 ```bash
 python main.py "What is chain of thought prompting?"
+```
+
+For a manual debugging workflow with execution trace, stage outputs, and an
+optional pretty-printed final state:
+
+```bash
+python tools/debug_rag.py "What is vision transformer"
+python tools/debug_rag.py --show-state "What is vision transformer"
+```
+
+## Logging and Debugging
+
+The project exposes three practical app log levels:
+
+- `INFO`: workflow lifecycle, grading start/end, and high-level outcomes
+- `DEBUG`: app debug logs without raw vendor transport payloads
+- `TRACE`: deepest app diagnostics, including structured LLM-call and grading-adjustment events
+
+Examples:
+
+```bash
+LOG_LEVEL=INFO python tools/debug_rag.py "What is vision transformer"
+LOG_LEVEL=DEBUG python tools/debug_rag.py "What is vision transformer"
+LOG_LEVEL=TRACE python tools/debug_rag.py --show-state "What is vision transformer"
+```
+
+At `TRACE`, you should see structured logs for:
+
+- resolved LLM client per task
+- per-call LLM latency, model, task, and endpoint
+- grading score adjustment details such as `answer_type`, `retrieval_support`, and `adjustment_reason`
+
+Raw OpenAI/httpx/httpcore transport internals are suppressed by default. If you
+need vendor transport debugging too, opt in explicitly:
+
+```bash
+LOG_LEVEL=DEBUG LOG_TRANSPORT_DEBUG=true python tools/debug_rag.py "What is vision transformer"
+```
+
+To run the backend with the same logging controls:
+
+```bash
+LOG_LEVEL=TRACE python -m backend.run
+LOG_LEVEL=DEBUG LOG_TRANSPORT_DEBUG=true python -m backend.run
 ```
 
 ---

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { createRAGTransport } from '../lib/create-rag-transport';
 import {
+  type AttemptSnapshot,
   createEmptySnapshot,
   type ConnectionStatus,
   type RAGServerEvent,
@@ -21,6 +22,40 @@ const initialState: SessionState = {
   snapshot: createEmptySnapshot(),
 };
 
+const WARMUP_MESSAGE = 'Waiting for backend warmup.';
+let reworkSequence = 0;
+
+function createEmptyAttempt(attempt: number): AttemptSnapshot {
+  return {
+    attempt,
+    rewrittenQuery: '',
+    retrievedDocs: [],
+    answer: '',
+    answerStatus: 'idle',
+    status: 'running',
+    hallucinationResult: undefined,
+  };
+}
+
+function upsertAttempt(
+  snapshot: SessionSnapshot,
+  attempt: number,
+  updater?: (current: AttemptSnapshot) => AttemptSnapshot,
+): SessionSnapshot {
+  const existing = snapshot.attempts.find((entry) => entry.attempt === attempt);
+  const current = existing ?? createEmptyAttempt(attempt);
+  const nextAttempt = updater ? updater(current) : current;
+  const attempts = existing
+    ? snapshot.attempts.map((entry) => (entry.attempt === attempt ? nextAttempt : entry))
+    : [...snapshot.attempts, nextAttempt].sort((a, b) => a.attempt - b.attempt);
+
+  return {
+    ...snapshot,
+    currentAttempt: attempt,
+    attempts,
+  };
+}
+
 function applyServerEvent(snapshot: SessionSnapshot, event: RAGServerEvent): SessionSnapshot {
   switch (event.type) {
     case 'run_started':
@@ -31,37 +66,79 @@ function applyServerEvent(snapshot: SessionSnapshot, event: RAGServerEvent): Ses
         runStatus: 'running',
         currentStep: 'rewriting',
       };
+    case 'attempt_started':
+      return upsertAttempt(snapshot, event.attempt);
+    case 'stage_started':
+      return {
+        ...snapshot,
+        currentAttempt: event.attempt,
+        currentStep: event.stage,
+        runStatus: 'running',
+      };
+    case 'stage_completed':
+      return snapshot;
     case 'step_changed':
       return {
         ...snapshot,
         currentStep: event.step,
+        currentAttempt: event.attempt,
         runStatus: event.step === 'complete' ? 'complete' : 'running',
       };
     case 'query_rewritten':
-      return {
-        ...snapshot,
+      return upsertAttempt(snapshot, event.attempt, (attempt) => ({
+        ...attempt,
         rewrittenQuery: event.rewrittenQuery,
-      };
+        retrievedDocs: [],
+        answer: '',
+        answerStatus: 'idle',
+        hallucinationResult: undefined,
+      }));
     case 'documents_retrieved':
-      return {
-        ...snapshot,
+      return upsertAttempt(snapshot, event.attempt, (attempt) => ({
+        ...attempt,
         retrievedDocs: event.retrievedDocs,
-      };
+      }));
     case 'answer_delta':
-      return {
-        ...snapshot,
-        answer: `${snapshot.answer}${event.delta}`,
-      };
+      return upsertAttempt(snapshot, event.attempt, (attempt) => ({
+        ...attempt,
+        answer: `${attempt.answer}${event.delta}`,
+        answerStatus: 'streaming',
+      }));
     case 'answer_replaced':
-      return {
-        ...snapshot,
+      return upsertAttempt(snapshot, event.attempt, (attempt) => ({
+        ...attempt,
         answer: event.answer,
+        answerStatus: event.answer.length > 0 ? 'streaming' : 'idle',
+      }));
+    case 'answer_completed':
+      return upsertAttempt(snapshot, event.attempt, (attempt) => ({
+        ...attempt,
+        answerStatus: 'complete',
+      }));
+    case 'attempt_rework_triggered':
+      return {
+        ...upsertAttempt(snapshot, event.attempt, (attempt) => ({
+          ...attempt,
+          status: 'reworked',
+        })),
+        reworkSignal: {
+          attempt: event.attempt,
+          reason: event.reason,
+          score: event.score,
+          threshold: event.threshold,
+          sequence: ++reworkSequence,
+        },
       };
     case 'grading_completed':
-      return {
-        ...snapshot,
+      return upsertAttempt(snapshot, event.attempt, (attempt) => ({
+        ...attempt,
         hallucinationResult: event.hallucinationResult,
-      };
+      }));
+    case 'attempt_completed':
+      return upsertAttempt(snapshot, event.attempt, (attempt) => ({
+        ...attempt,
+        status: event.outcome,
+      }));
     case 'run_completed':
       return {
         ...snapshot,
@@ -92,6 +169,15 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         connectionStatus: action.status,
       };
     case 'transport_error':
+      if (action.message === WARMUP_MESSAGE) {
+        return {
+          ...state,
+          snapshot: {
+            ...state.snapshot,
+            error: undefined,
+          },
+        };
+      }
       return {
         ...state,
         snapshot: {

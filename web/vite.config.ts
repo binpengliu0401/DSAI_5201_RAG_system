@@ -67,6 +67,9 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_RAG_WS_URL': JSON.stringify(backendWsUrl),
       'import.meta.env.VITE_RAG_TRANSPORT_MODE': JSON.stringify(env.FRONTEND_RAG_TRANSPORT || 'websocket'),
       'import.meta.env.VITE_RAG_ENGINE_MODE': JSON.stringify(env.RAG_ENGINE_MODE || 'fake'),
+      'import.meta.env.VITE_TYPEWRITER_INTERVAL_MS': JSON.stringify(toNumber(env.FRONTEND_TYPEWRITER_INTERVAL_MS, 42)),
+      'import.meta.env.VITE_TYPEWRITER_CHARS_PER_TICK': JSON.stringify(toNumber(env.FRONTEND_TYPEWRITER_CHARS_PER_TICK, 3)),
+      'import.meta.env.VITE_REWORK_BEACON_DURATION_MS': JSON.stringify(toNumber(env.FRONTEND_REWORK_BEACON_DURATION_MS, 10000)),
     },
     assetsInclude: ['**/*.svg', '**/*.csv'],
   }

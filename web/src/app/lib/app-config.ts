@@ -5,6 +5,9 @@ export interface AppConfig {
   ragWsUrl: string;
   transportMode: 'websocket' | 'demo' | 'auto';
   ragEngineMode: string;
+  typewriterIntervalMs: number;
+  typewriterCharsPerTick: number;
+  reworkBeaconDurationMs: number;
 }
 
 export const appConfig: AppConfig = {
@@ -14,4 +17,7 @@ export const appConfig: AppConfig = {
   ragWsUrl: import.meta.env.VITE_RAG_WS_URL,
   transportMode: import.meta.env.VITE_RAG_TRANSPORT_MODE,
   ragEngineMode: import.meta.env.VITE_RAG_ENGINE_MODE,
+  typewriterIntervalMs: import.meta.env.VITE_TYPEWRITER_INTERVAL_MS,
+  typewriterCharsPerTick: import.meta.env.VITE_TYPEWRITER_CHARS_PER_TICK,
+  reworkBeaconDurationMs: import.meta.env.VITE_REWORK_BEACON_DURATION_MS,
 };

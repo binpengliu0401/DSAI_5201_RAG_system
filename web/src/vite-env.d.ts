@@ -7,6 +7,9 @@ interface ImportMetaEnv {
   readonly VITE_RAG_WS_URL: string
   readonly VITE_RAG_TRANSPORT_MODE: 'websocket' | 'demo' | 'auto'
   readonly VITE_RAG_ENGINE_MODE: string
+  readonly VITE_TYPEWRITER_INTERVAL_MS: number
+  readonly VITE_TYPEWRITER_CHARS_PER_TICK: number
+  readonly VITE_REWORK_BEACON_DURATION_MS: number
 }
 
 interface ImportMeta {

@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from app.services import llm_service
 
@@ -45,6 +45,13 @@ def test_normalize_openai_base_url_strips_trailing_slash_only():
     )
 
 
+def test_chat_completions_endpoint_appends_suffix():
+    assert (
+        llm_service._chat_completions_endpoint("https://example.test/v1")
+        == "https://example.test/v1/chat/completions"
+    )
+
+
 def test_model_for_task_returns_expected_profile():
     fake_settings = _make_settings()
     with patch.object(llm_service, "settings", fake_settings):
@@ -70,6 +77,7 @@ def test_get_llm_constructs_chat_openai_with_project_settings(mock_chat_openai):
         api_key="test-key",
         base_url="https://example.test/v1",
         temperature=0.35,
+        callbacks=[ANY],
     )
     assert client is mock_chat_openai.return_value
 
@@ -91,4 +99,5 @@ def test_get_llm_forwards_none_api_key_without_local_validation(mock_chat_openai
         api_key=None,
         base_url="https://example.test/v1",
         temperature=0.0,
+        callbacks=[ANY],
     )

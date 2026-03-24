@@ -37,3 +37,4 @@ web/.env.*
 
 # Project Management
 uv.lock
+sync_runpod.sh
