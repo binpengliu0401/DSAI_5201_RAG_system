@@ -108,7 +108,7 @@ export function AnswerCard({
   };
 
   return (
-    <Card className="p-6 space-y-4 bg-[#0e1217] border-gray-800">
+    <Card className="flex-1 min-h-0 flex flex-col gap-4 p-6 bg-[#0e1217] border-gray-800">
       <div className="flex items-center justify-between gap-4">
         <span className="text-xs uppercase tracking-widest font-mono text-gray-500">Answer</span>
         {isComplete && (
@@ -122,7 +122,7 @@ export function AnswerCard({
       
       <div
         ref={bodyScrollRef}
-        className="text-gray-100 leading-relaxed text-base min-h-[120px] max-h-[44vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
+        className="text-gray-100 leading-relaxed text-base flex-1 min-h-0 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
       >
         {answer.length > 0 ? (
           <>

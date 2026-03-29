@@ -71,7 +71,7 @@ export default function App() {
         <div className="flex items-center justify-between gap-4 py-3 mb-6 flex-shrink-0 border-b border-gray-800/60">
           <div className="flex items-center gap-3 min-w-0">
             <Brain className="size-5 text-blue-400 flex-shrink-0" />
-            <h1 className="text-lg font-medium text-white">Neural Observatory</h1>
+            <h1 className="text-lg font-medium text-white">MathMind RAG</h1>
             {snapshot.currentStep && snapshot.currentStep !== 'complete' && (
               <LoadingSteps currentStep={snapshot.currentStep} />
             )}
@@ -85,9 +85,9 @@ export default function App() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,0.9fr)] gap-8 flex-1 min-h-0 xl:overflow-hidden">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,0.9fr)] gap-8 flex-1 min-h-0 xl:overflow-hidden pb-2">
           {/* Left Column - Output and Loading */}
-          <div className="space-y-4 min-h-0 xl:overflow-y-auto xl:pr-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+          <div className="flex flex-col gap-4 min-h-0 xl:pr-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
             {/* Rework Banner */}
             {showReworkBeacon && reworkSignal && (
               <div className="flex items-center gap-3 border-l-2 border-amber-500 bg-amber-500/5 px-4 py-2.5 text-sm text-amber-300">
