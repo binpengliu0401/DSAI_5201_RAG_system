@@ -1,7 +1,6 @@
 import { memo } from "react";
 import { Card } from "./ui/card";
-import { Badge } from "./ui/badge";
-import { FileText, RefreshCw, FileSearch, MessageSquare, ShieldCheck, PlugZap } from "lucide-react";
+import { FileText, RefreshCw, FileSearch, MessageSquare, ShieldCheck } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { ChevronDown, CheckCircle2 } from "lucide-react";
 import type { AttemptSnapshot, ConnectionStatus, SessionSnapshot, TransportMode } from "../types/rag";
@@ -25,27 +24,22 @@ export const ReasoningPanel = memo(function ReasoningPanel({
     snapshot.attempts.length === 0
   ) {
     return (
-      <Card className="p-6 bg-gray-900/50 border-gray-800 backdrop-blur-sm h-full">
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <h3 className="font-medium text-gray-100">Reasoning Trace</h3>
-          <ConnectionBadge connectionStatus={connectionStatus} transportMode={transportMode} />
+      <Card className="p-6 bg-[#0e1217] border-gray-800 h-full">
+        <div className="mb-6">
+          <h3 className="text-xs uppercase tracking-widest font-mono text-gray-500">Reasoning Trace</h3>
         </div>
-        <div className="text-center text-gray-500 py-12">
-          <FileText className="size-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Pipeline details will appear here</p>
+        <div className="text-center py-12">
+          <FileText className="size-8 mx-auto mb-3 text-gray-700" />
+          <p className="text-xs font-mono text-gray-600">// awaiting query</p>
         </div>
       </Card>
     );
   }
 
   return (
-    <Card className="p-6 bg-gray-900/50 border-gray-800 backdrop-blur-sm h-full flex flex-col">
-      <div className="mb-6 flex items-center justify-between gap-3 flex-shrink-0">
-        <h3 className="font-medium text-gray-100 flex items-center gap-2">
-          <div className="size-2 bg-purple-400 rounded-full animate-pulse" />
-          Reasoning Trace
-        </h3>
-        <ConnectionBadge connectionStatus={connectionStatus} transportMode={transportMode} />
+    <Card className="p-6 bg-[#0e1217] border-gray-800 h-full flex flex-col">
+      <div className="mb-6 flex-shrink-0">
+        <h3 className="text-xs uppercase tracking-widest font-mono text-gray-500">Reasoning Trace</h3>
       </div>
 
       <div className="space-y-8 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
@@ -54,39 +48,6 @@ export const ReasoningPanel = memo(function ReasoningPanel({
     </Card>
   );
 }, areReasoningPanelPropsEqual);
-
-function ConnectionBadge({
-  connectionStatus,
-  transportMode,
-}: {
-  connectionStatus: ConnectionStatus;
-  transportMode: TransportMode;
-}) {
-  const label = transportMode === 'demo'
-    ? 'Demo mode'
-    : connectionStatus === 'connected'
-    ? 'Socket live'
-    : connectionStatus === 'connecting'
-    ? 'Connecting'
-    : connectionStatus === 'disconnected'
-    ? 'Disconnected'
-    : 'Connection error';
-
-  const classes = transportMode === 'demo'
-    ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
-    : connectionStatus === 'connected'
-    ? 'bg-green-500/10 text-green-400 border-green-500/30'
-    : connectionStatus === 'connecting'
-    ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
-    : 'bg-red-500/10 text-red-400 border-red-500/30';
-
-  return (
-    <Badge variant="outline" className={`text-xs ${classes}`}>
-      <PlugZap className="size-3 mr-1" />
-      {label}
-    </Badge>
-  );
-}
 
 function TraceBody({
   snapshot,
@@ -105,7 +66,7 @@ function TraceBody({
     const steps = ['rewriting', 'retrieval', 'generation', 'grading', 'complete'];
     const currentIndex = steps.indexOf(currentStep);
     const stepIndex = steps.indexOf(step);
-    
+
     if (currentStep === 'complete' || stepIndex < currentIndex) return 'complete';
     if (stepIndex === currentIndex) return 'active';
     return 'pending';
@@ -113,52 +74,51 @@ function TraceBody({
 
   return (
     <div className="space-y-6 relative">
+      {/* Retry History */}
       {snapshot.attempts.length > 1 && (
-        <div className="rounded-xl border border-gray-800 bg-gray-950/50 p-4 space-y-3">
+        <div className="border border-gray-800 bg-[#0a0d11] p-4 space-y-3 rounded-lg">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-sm font-medium text-gray-200">Retry History</div>
-            <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/30">
-              {snapshot.attempts.length} attempts
-            </Badge>
+            <span className="text-xs uppercase tracking-widest font-mono text-gray-500">Retry History</span>
+            <span className="text-xs font-mono text-gray-600">{snapshot.attempts.length} attempts</span>
           </div>
           <div className="space-y-2">
             {previousAttempts.map((attempt) => (
               <Collapsible key={attempt.attempt}>
                 <CollapsibleTrigger className="w-full">
-                  <div className="flex items-start justify-between gap-3 rounded-lg border border-gray-800 bg-gray-900/60 p-3 text-left hover:border-gray-700 transition-colors">
-                    <div className="space-y-1 min-w-0">
-                      <div className="text-sm text-gray-200">Attempt {attempt.attempt}</div>
-                      <div className="text-xs text-gray-500 truncate">
-                        {attempt.rewrittenQuery || 'Rewrite pending'}
+                  <div className="flex items-start justify-between gap-3 rounded border border-gray-800 bg-[#0a0d11] p-3 text-left hover:border-gray-700 transition-colors">
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="text-xs font-mono text-gray-400">attempt_{attempt.attempt}</div>
+                      <div className="text-xs font-mono text-gray-600 truncate">
+                        {attempt.rewrittenQuery || '—'}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {attempt.hallucinationResult && (
-                        <Badge variant="outline" className="text-xs bg-gray-800 text-gray-300 border-gray-700">
-                          Score {attempt.hallucinationResult.score.toFixed(2)}
-                        </Badge>
+                        <span className="text-xs font-mono text-gray-500">
+                          {attempt.hallucinationResult.score.toFixed(2)}
+                        </span>
                       )}
-                      <ChevronDown className="size-4 text-gray-500 group-data-[state=open]:rotate-180 transition-transform" />
+                      <ChevronDown className="size-4 text-gray-600 group-data-[state=open]:rotate-180 transition-transform" />
                     </div>
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="mt-2 rounded-lg border border-gray-800 bg-gray-950/50 p-3 space-y-3">
+                  <div className="mt-1 rounded border border-gray-800 bg-[#0a0d11] p-3 space-y-3">
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">Rewrite</div>
-                      <div className="text-sm text-gray-300">{attempt.rewrittenQuery || 'No rewrite captured.'}</div>
+                      <div className="text-xs uppercase tracking-wide font-mono text-gray-600 mb-1">rewrite</div>
+                      <div className="text-xs font-mono text-gray-400">{attempt.rewrittenQuery || '—'}</div>
                     </div>
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">Answer</div>
-                      <div className="text-sm text-gray-300 whitespace-pre-wrap">
-                        {attempt.answer || 'No answer captured.'}
+                      <div className="text-xs uppercase tracking-wide font-mono text-gray-600 mb-1">answer</div>
+                      <div className="text-sm text-gray-400 whitespace-pre-wrap">
+                        {attempt.answer || '—'}
                       </div>
                     </div>
                     {attempt.hallucinationResult && (
                       <div>
-                        <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">Grounding</div>
-                        <div className="text-sm text-gray-300">
-                          {attempt.hallucinationResult.score.toFixed(2)}: {attempt.hallucinationResult.explanation}
+                        <div className="text-xs uppercase tracking-wide font-mono text-gray-600 mb-1">score</div>
+                        <div className="text-xs font-mono text-gray-400">
+                          {attempt.hallucinationResult.score.toFixed(2)} — {attempt.hallucinationResult.explanation}
                         </div>
                       </div>
                     )}
@@ -171,202 +131,182 @@ function TraceBody({
       )}
 
       {!currentAttempt ? (
-        <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-4 text-sm text-gray-500">
-          Waiting for the first attempt to start...
-        </div>
+        <div className="text-xs font-mono text-gray-600 py-2">// waiting for first attempt</div>
       ) : (
         <>
           <div className="flex items-center justify-between gap-3">
-            <div className="text-sm font-medium text-gray-200">Active Attempt {currentAttempt.attempt}</div>
-            <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/30">
-              Current pass
-            </Badge>
+            <span className="text-xs uppercase tracking-widest font-mono text-gray-500">
+              Attempt <span className="text-gray-300">{currentAttempt.attempt}</span>
+            </span>
+            <span className="text-xs font-mono text-blue-400">active</span>
           </div>
 
-      {/* Timeline line */}
-      <div className="absolute left-[19px] top-6 bottom-0 w-0.5 bg-gray-800" />
+          {/* Timeline line */}
+          <div className="absolute left-[19px] top-6 bottom-0 w-px bg-gray-800" />
 
-      {/* Rewritten Query */}
-      <div className="relative">
-        <div className="flex items-start gap-4">
-          <div className={`size-10 rounded-full flex items-center justify-center z-10 ${
-            getStepStatus('rewriting') === 'complete' 
-              ? 'bg-green-500/20 border-2 border-green-500'
-              : getStepStatus('rewriting') === 'active'
-              ? 'bg-blue-500/20 border-2 border-blue-500 animate-pulse'
-              : 'bg-gray-800/50 border-2 border-gray-700'
-          }`}>
-            <RefreshCw className={`size-5 ${
-              getStepStatus('rewriting') === 'complete' ? 'text-green-400' : 
-              getStepStatus('rewriting') === 'active' ? 'text-blue-400' :
-              'text-gray-600'
-            }`} />
-          </div>
-          <div className="flex-1 space-y-2 pt-1">
-            <div className="text-sm text-gray-400 font-medium">Query Rewrite</div>
-            {getStepStatus('rewriting') !== 'pending' && (
-              <div className="bg-gray-800/50 rounded-lg p-3 text-sm text-gray-300 border border-gray-700">
-                "{currentAttempt.rewrittenQuery || 'Waiting for backend rewrite...'}"
+          {/* Rewritten Query */}
+          <div className="relative">
+            <div className="flex items-start gap-4">
+              <div className={`size-10 rounded flex items-center justify-center z-10 flex-shrink-0 ${
+                getStepStatus('rewriting') === 'complete'
+                  ? 'bg-green-900/30 border border-green-800 text-green-500'
+                  : getStepStatus('rewriting') === 'active'
+                  ? 'bg-blue-900/30 border border-blue-800 text-blue-400'
+                  : 'bg-gray-900 border border-gray-800 text-gray-700'
+              }`}>
+                <RefreshCw className="size-4" />
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Retrieved Documents */}
-      <div className="relative">
-        <div className="flex items-start gap-4">
-          <div className={`size-10 rounded-full flex items-center justify-center z-10 ${
-            getStepStatus('retrieval') === 'complete' 
-              ? 'bg-green-500/20 border-2 border-green-500'
-              : getStepStatus('retrieval') === 'active'
-              ? 'bg-blue-500/20 border-2 border-blue-500 animate-pulse'
-              : 'bg-gray-800/50 border-2 border-gray-700'
-          }`}>
-            <FileSearch className={`size-5 ${
-              getStepStatus('retrieval') === 'complete' ? 'text-green-400' : 
-              getStepStatus('retrieval') === 'active' ? 'text-blue-400' :
-              'text-gray-600'
-            }`} />
-          </div>
-          <div className="flex-1 space-y-3 pt-1">
-            <div className="text-sm text-gray-400 font-medium">Retrieved Documents</div>
-            {getStepStatus('retrieval') !== 'pending' && (
-              <div className="space-y-2">
-                {currentAttempt.retrievedDocs.length === 0 && (
-                  <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700 text-sm text-gray-500">
-                    Waiting for retrieved context...
+              <div className="flex-1 space-y-2 pt-1 min-w-0">
+                <div className="text-xs uppercase tracking-wide font-mono text-gray-500">Query Rewrite</div>
+                {getStepStatus('rewriting') !== 'pending' && (
+                  <div className="bg-[#0a0d11] rounded p-3 text-xs font-mono text-gray-300 border border-gray-800">
+                    {currentAttempt.rewrittenQuery || '// waiting...'}
                   </div>
                 )}
-                {currentAttempt.retrievedDocs.map((doc) => (
-                  <Collapsible key={doc.id}>
-                    <CollapsibleTrigger className="w-full">
-                      <div className="flex items-start gap-3 bg-gray-800/50 rounded-lg p-3 border border-gray-700 hover:border-gray-600 transition-colors cursor-pointer group">
-                        <ChevronDown className="size-4 text-gray-500 mt-0.5 group-data-[state=open]:rotate-180 transition-transform flex-shrink-0" />
-                        <div className="flex-1 text-left min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="text-xs text-gray-500">{doc.source}</span>
-                            {doc.relevant && (
-                              <Badge variant="secondary" className="text-xs bg-green-500/10 text-green-400 border-green-500/30">
-                                <CheckCircle2 className="size-3 mr-1" />
-                                Supports answer
-                              </Badge>
-                            )}
+              </div>
+            </div>
+          </div>
+
+          {/* Retrieved Documents */}
+          <div className="relative">
+            <div className="flex items-start gap-4">
+              <div className={`size-10 rounded flex items-center justify-center z-10 flex-shrink-0 ${
+                getStepStatus('retrieval') === 'complete'
+                  ? 'bg-green-900/30 border border-green-800 text-green-500'
+                  : getStepStatus('retrieval') === 'active'
+                  ? 'bg-blue-900/30 border border-blue-800 text-blue-400'
+                  : 'bg-gray-900 border border-gray-800 text-gray-700'
+              }`}>
+                <FileSearch className="size-4" />
+              </div>
+              <div className="flex-1 space-y-2 pt-1 min-w-0">
+                <div className="text-xs uppercase tracking-wide font-mono text-gray-500">Retrieved Documents</div>
+                {getStepStatus('retrieval') !== 'pending' && (
+                  <div className="space-y-1.5">
+                    {currentAttempt.retrievedDocs.length === 0 && (
+                      <div className="text-xs font-mono text-gray-600 py-1">// waiting for context</div>
+                    )}
+                    {currentAttempt.retrievedDocs.map((doc, idx) => (
+                      <Collapsible key={doc.id}>
+                        <CollapsibleTrigger className="w-full">
+                          <div className="flex items-start gap-2 bg-[#0a0d11] rounded p-2.5 border border-gray-800 hover:border-gray-700 transition-colors cursor-pointer group">
+                            <ChevronDown className="size-3.5 text-gray-600 mt-0.5 group-data-[state=open]:rotate-180 transition-transform flex-shrink-0" />
+                            <div className="flex-1 text-left min-w-0">
+                              <div className="flex items-center justify-between gap-2 mb-0.5">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-xs font-mono text-gray-600 flex-shrink-0">
+                                    [{String(idx + 1).padStart(2, '0')}]
+                                  </span>
+                                  <span className="text-xs text-gray-400 truncate">{doc.source}</span>
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  {doc.relevant && (
+                                    <CheckCircle2 className="size-3 text-green-600" />
+                                  )}
+                                  {doc.score !== undefined && (
+                                    <span className="text-xs font-mono text-gray-600">{doc.score.toFixed(2)}</span>
+                                  )}
+                                </div>
+                              </div>
+                              <p className="text-xs text-gray-600 line-clamp-1">{doc.snippet}</p>
+                            </div>
                           </div>
-                          <p className="text-sm text-gray-300 line-clamp-2">
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="ml-5 mt-1 p-2.5 bg-[#0a0d11] rounded border border-gray-800 text-xs text-gray-500 font-mono leading-relaxed">
                             {doc.snippet}
-                          </p>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Generation */}
+          <div className="relative">
+            <div className="flex items-start gap-4">
+              <div className={`size-10 rounded flex items-center justify-center z-10 flex-shrink-0 ${
+                getStepStatus('generation') === 'complete'
+                  ? 'bg-green-900/30 border border-green-800 text-green-500'
+                  : getStepStatus('generation') === 'active'
+                  ? 'bg-blue-900/30 border border-blue-800 text-blue-400'
+                  : 'bg-gray-900 border border-gray-800 text-gray-700'
+              }`}>
+                <MessageSquare className="size-4" />
+              </div>
+              <div className="flex-1 space-y-2 pt-1">
+                <div className="text-xs uppercase tracking-wide font-mono text-gray-500">Generation</div>
+                {getStepStatus('generation') === 'active' && (
+                  <div className="text-xs font-mono text-blue-400 animate-pulse">// generating response</div>
+                )}
+                {getStepStatus('generation') === 'complete' && (
+                  <div className="text-xs font-mono text-green-600">// stream complete</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Hallucination Detection */}
+          <div className="relative">
+            <div className="flex items-start gap-4">
+              <div className={`size-10 rounded flex items-center justify-center z-10 flex-shrink-0 ${
+                getStepStatus('grading') === 'complete'
+                  ? (currentAttempt.hallucinationResult?.score ?? 0) >= 0.7
+                    ? 'bg-green-900/30 border border-green-800 text-green-500'
+                    : (currentAttempt.hallucinationResult?.score ?? 0) >= 0.4
+                    ? 'bg-yellow-900/30 border border-yellow-800 text-yellow-500'
+                    : 'bg-red-900/30 border border-red-800 text-red-500'
+                  : getStepStatus('grading') === 'active'
+                  ? 'bg-blue-900/30 border border-blue-800 text-blue-400'
+                  : 'bg-gray-900 border border-gray-800 text-gray-700'
+              }`}>
+                <ShieldCheck className="size-4" />
+              </div>
+              <div className="flex-1 space-y-2 pt-1">
+                <div className="text-xs uppercase tracking-wide font-mono text-gray-500">Hallucination Detection</div>
+
+                {getStepStatus('grading') !== 'pending' && (
+                  <div className="space-y-2">
+                    {!currentAttempt.hallucinationResult && (
+                      <div className="text-xs font-mono text-gray-600">// waiting for assessment</div>
+                    )}
+                    {currentAttempt.hallucinationResult && (
+                      <>
+                        <div className="flex items-center justify-between bg-[#0a0d11] rounded p-3 border border-gray-800">
+                          <span className="text-xs uppercase tracking-wide font-mono text-gray-500">Confidence</span>
+                          <span className={`text-sm font-mono font-medium ${
+                            currentAttempt.hallucinationResult.score >= 0.7 ? 'text-green-400' :
+                            currentAttempt.hallucinationResult.score >= 0.4 ? 'text-yellow-400' :
+                            'text-red-400'
+                          }`}>
+                            {currentAttempt.hallucinationResult.score.toFixed(2)}
+                          </span>
                         </div>
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="ml-7 mt-2 p-3 bg-gray-900/50 rounded-lg border border-gray-700 text-sm text-gray-400">
-                        {doc.snippet}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* Generation Step */}
-      <div className="relative">
-        <div className="flex items-start gap-4">
-          <div className={`size-10 rounded-full flex items-center justify-center z-10 ${
-            getStepStatus('generation') === 'complete' 
-              ? 'bg-green-500/20 border-2 border-green-500'
-              : getStepStatus('generation') === 'active'
-              ? 'bg-blue-500/20 border-2 border-blue-500 animate-pulse'
-              : 'bg-gray-800/50 border-2 border-gray-700'
-          }`}>
-            <MessageSquare className={`size-5 ${
-              getStepStatus('generation') === 'complete' ? 'text-green-400' : 
-              getStepStatus('generation') === 'active' ? 'text-blue-400' :
-              'text-gray-600'
-            }`} />
-          </div>
-          <div className="flex-1 space-y-2 pt-1">
-            <div className="text-sm text-gray-400 font-medium">Generation</div>
-            {getStepStatus('generation') === 'active' && (
-              <div className="text-xs text-gray-500">Generating response...</div>
-            )}
-            {getStepStatus('generation') === 'complete' && (
-              <div className="text-xs text-green-400">Answer stream completed.</div>
-            )}
-          </div>
-        </div>
-      </div>
+                        <div className="bg-[#0a0d11] rounded p-3 border border-gray-800">
+                          <p className="text-xs text-gray-400 leading-relaxed">{currentAttempt.hallucinationResult.explanation}</p>
+                        </div>
 
-      {/* Hallucination Detection */}
-      <div className="relative">
-        <div className="flex items-start gap-4">
-          <div className={`size-10 rounded-full flex items-center justify-center z-10 ${
-            getStepStatus('grading') === 'complete'
-              ? (currentAttempt.hallucinationResult?.score ?? 0) >= 0.7
-                ? 'bg-green-500/20 border-2 border-green-500'
-                : (currentAttempt.hallucinationResult?.score ?? 0) >= 0.4
-                ? 'bg-yellow-500/20 border-2 border-yellow-500'
-                : 'bg-red-500/20 border-2 border-red-500'
-              : getStepStatus('grading') === 'active'
-              ? 'bg-blue-500/20 border-2 border-blue-500 animate-pulse'
-              : 'bg-gray-800/50 border-2 border-gray-700'
-          }`}>
-            <ShieldCheck className={`size-5 ${
-              getStepStatus('grading') === 'complete'
-                ? (currentAttempt.hallucinationResult?.score ?? 0) >= 0.7 ? 'text-green-400' :
-                  (currentAttempt.hallucinationResult?.score ?? 0) >= 0.4 ? 'text-yellow-400' :
-                  'text-red-400'
-                : getStepStatus('grading') === 'active' ? 'text-blue-400' :
-                'text-gray-600'
-            }`} />
-          </div>
-          <div className="flex-1 space-y-3 pt-1">
-            <div className="text-sm text-gray-400 font-medium">Hallucination Detection</div>
-            
-            {getStepStatus('grading') !== 'pending' && (
-              <div className="space-y-3">
-                {!currentAttempt.hallucinationResult && (
-                  <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700 text-sm text-gray-500">
-                    Waiting for grounding assessment...
+                        {currentAttempt.hallucinationResult.unsupportedClaims && currentAttempt.hallucinationResult.unsupportedClaims.length > 0 && (
+                          <div className="border-l-2 border-red-800 bg-red-500/5 px-3 py-2.5 space-y-1">
+                            <p className="text-xs uppercase tracking-wide font-mono text-red-600 mb-2">Unsupported Claims</p>
+                            <ul className="space-y-1">
+                              {currentAttempt.hallucinationResult.unsupportedClaims.map((claim, idx) => (
+                                <li key={idx} className="text-xs text-red-400 font-mono">— {claim}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
-                {currentAttempt.hallucinationResult && (
-                  <>
-                <div className="flex items-center justify-between bg-gray-800/50 rounded-lg p-3 border border-gray-700">
-                  <span className="text-sm text-gray-400">Answer Confidence</span>
-                  <span className={`text-sm font-medium ${
-                    currentAttempt.hallucinationResult.score >= 0.7 ? 'text-green-400' :
-                    currentAttempt.hallucinationResult.score >= 0.4 ? 'text-yellow-400' :
-                    'text-red-400'
-                  }`}>
-                    {currentAttempt.hallucinationResult.score.toFixed(2)}
-                  </span>
-                </div>
-                
-                <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700">
-                  <p className="text-sm text-gray-300">{currentAttempt.hallucinationResult.explanation}</p>
-                </div>
-
-                {currentAttempt.hallucinationResult.unsupportedClaims && currentAttempt.hallucinationResult.unsupportedClaims.length > 0 && (
-                  <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/30">
-                    <p className="text-xs text-red-400 font-medium mb-2">Unsupported Claims:</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      {currentAttempt.hallucinationResult.unsupportedClaims.map((claim, idx) => (
-                        <li key={idx} className="text-sm text-red-300">{claim}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                  </>
-                )}
               </div>
-            )}
+            </div>
           </div>
-        </div>
-      </div>
         </>
       )}
     </div>

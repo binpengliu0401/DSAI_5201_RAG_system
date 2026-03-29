@@ -5,6 +5,28 @@
   }
 }
 
+/* Diagonal flowing gradient background */
+@keyframes gradient-flow {
+  0%   { background-position: 0% 0%; }
+  50%  { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+.gradient-bg-animated {
+  background: linear-gradient(
+    135deg,
+    #020e20 0%,
+    #0f2847 18%,
+    #0B0F14 38%,
+    #0B0F14 55%,
+    #062e2c 68%,
+    #0e3e38 82%,
+    #020e20 100%
+  );
+  background-size: 400% 400%;
+  animation: gradient-flow 10s ease-in-out infinite;
+}
+
 /* Custom scrollbar styles */
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
