@@ -3,7 +3,6 @@ import { Badge } from "./ui/badge";
 import { AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
 import { TypewriterText } from "./typewriter-text";
 import { useEffect, useRef, useState } from "react";
-import { Progress } from "./ui/progress";
 
 interface AnswerCardProps {
   answer: string;
@@ -103,40 +102,27 @@ export function AnswerCard({
 
   const scoreColor = hallucinationScore ? getScoreColor(hallucinationScore) : 'green';
   const scoreColorClasses = {
-    green: 'bg-green-500/10 text-green-400 border-green-500/30',
-    yellow: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-    red: 'bg-red-500/10 text-red-400 border-red-500/30'
-  };
-
-  const progressColorClasses = {
-    green: 'bg-green-500',
-    yellow: 'bg-yellow-500',
-    red: 'bg-red-500'
+    green: 'bg-transparent text-green-400 border-green-800',
+    yellow: 'bg-transparent text-yellow-400 border-yellow-800',
+    red: 'bg-transparent text-red-400 border-red-800'
   };
 
   return (
-    <Card className="p-6 space-y-4 bg-gray-900/50 border-gray-800 backdrop-blur-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <h3 className="text-sm text-gray-400">Answer</h3>
-          {isComplete && (
-            <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30 text-xs">
-              Completed
-            </Badge>
-          )}
-        </div>
+    <Card className="flex-1 min-h-0 flex flex-col gap-4 p-6 bg-[#0e1217] border-gray-800">
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-xs uppercase tracking-widest font-mono text-gray-500">Answer</span>
+        {isComplete && (
+          <span className="text-xs font-mono text-green-600">✓ complete</span>
+        )}
       </div>
-      
+
       {isGenerating && (
-        <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
-          <div className="size-2 bg-blue-400 rounded-full animate-ping" />
-          Generating answer...
-        </div>
+        <div className="text-xs font-mono text-blue-400 animate-pulse">// generating...</div>
       )}
       
       <div
         ref={bodyScrollRef}
-        className="text-gray-100 leading-relaxed text-base min-h-[120px] max-h-[44vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
+        className="text-gray-100 leading-relaxed text-base flex-1 min-h-0 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
       >
         {answer.length > 0 ? (
           <>
@@ -153,36 +139,22 @@ export function AnswerCard({
             <div ref={bottomRef} />
           </>
         ) : (
-          <div className="text-gray-500">
-            {isGenerating ? 'Waiting for the first answer tokens...' : 'Ask a question to generate an answer.'}
+          <div className="text-xs font-mono text-gray-600">
+            {isGenerating ? '// waiting for tokens...' : '// ask a question to begin'}
           </div>
         )}
       </div>
 
       {hallucinationScore !== undefined && displayComplete && (
-        <div className="space-y-3 pt-2 border-t border-gray-800 animate-in fade-in duration-500">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-400">Answer Confidence</span>
-            <Badge 
-              variant="outline" 
-              className={`flex items-center gap-1.5 ${scoreColorClasses[scoreColor]}`}
-            >
-              {getScoreIcon(hallucinationScore)}
-              <span>{getScoreLabel(hallucinationScore)}</span>
-              <span className="ml-1 opacity-75">{hallucinationScore.toFixed(2)}</span>
-            </Badge>
-          </div>
-          
-          <div className="relative">
-            <Progress 
-              value={hallucinationScore * 100} 
-              className="h-2 bg-gray-800"
-            />
-            <div 
-              className={`absolute top-0 left-0 h-2 rounded-full transition-all duration-500 ${progressColorClasses[scoreColor]}`}
-              style={{ width: `${hallucinationScore * 100}%` }}
-            />
-          </div>
+        <div className="flex items-center gap-3 pt-3 border-t border-gray-800 animate-in fade-in duration-500">
+          <Badge
+            variant="outline"
+            className={`inline-flex items-center gap-1.5 ${scoreColorClasses[scoreColor]}`}
+          >
+            {getScoreIcon(hallucinationScore)}
+            <span>{getScoreLabel(hallucinationScore)}</span>
+            <span className="font-mono opacity-70">{hallucinationScore.toFixed(2)}</span>
+          </Badge>
         </div>
       )}
     </Card>

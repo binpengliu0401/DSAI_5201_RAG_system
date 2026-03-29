@@ -21,8 +21,8 @@ export function QueryInput({ query, onQueryChange, onSubmit, isLoading }: QueryI
 
   return (
     <div className="w-full">
-      <label className="text-sm text-gray-400 mb-2 block">
-        Ask a question
+      <label className="text-xs uppercase tracking-widest font-mono text-gray-500 mb-2 block">
+        Query
       </label>
       <div className="flex gap-3 items-start">
         <Textarea
@@ -30,21 +30,21 @@ export function QueryInput({ query, onQueryChange, onSubmit, isLoading }: QueryI
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="flex-1 min-h-[52px] max-h-[84px] resize-none bg-gray-900/50 border-gray-700 text-gray-100 placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 text-sm"
+          className="flex-1 min-h-[52px] max-h-[84px] resize-none bg-[#0e1217] border-gray-800 text-gray-100 placeholder:text-gray-600 focus:border-gray-600 focus:ring-0 transition-colors text-sm"
           disabled={isLoading}
         />
-        <Button 
-          onClick={onSubmit} 
+        <Button
+          onClick={onSubmit}
           disabled={!query.trim() || isLoading}
-          className="h-[52px] px-7 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/30 hover:border-blue-500/50 backdrop-blur-sm shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20 transition-all duration-200 disabled:opacity-30 disabled:shadow-none flex-shrink-0"
+          className="h-[52px] px-7 bg-blue-700 hover:bg-blue-600 text-white border-0 transition-colors disabled:opacity-30 flex-shrink-0 font-mono text-sm rounded"
         >
           {isLoading ? (
             <>
               <Sparkles className="size-4 mr-2 animate-pulse" />
-              Processing...
+              running
             </>
           ) : (
-            'Ask'
+            'run'
           )}
         </Button>
       </div>
